@@ -398,7 +398,7 @@ namespace BloogBot.Game
                     throw new NotImplementedException("TODO: figure this out for Vanilla");
                 else
                     throw new NotImplementedException("Unknown client version");
-            } 
+            }
         }
 
 
@@ -457,7 +457,13 @@ namespace BloogBot.Game
         static readonly ReleaseCorpseDelegate ReleaseCorpseFunction =
             Marshal.GetDelegateForFunctionPointer<ReleaseCorpseDelegate>((IntPtr)MemoryAddresses.ReleaseCorpseFunPtr);
 
-        static public void ReleaseCorpse(IntPtr ptr) => ReleaseCorpseFunction(ptr);
+        static public void ReleaseCorpse(IntPtr ptr) {
+            try { 
+                ReleaseCorpseFunction(ptr);
+            } catch {
+                throw new NotImplementedException("TODO: figure this out for TBC");
+            }
+        }
 
 
         [UnmanagedFunctionPointer(CallingConvention.ThisCall)]

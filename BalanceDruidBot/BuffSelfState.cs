@@ -26,15 +26,15 @@ namespace BalanceDruidBot
                 botStates.Pop();
                 return;
             }
-            
-            TryCastSpell(MarkOfTheWild);
-            TryCastSpell(Thorns);
+
+            TryCastBuff(MarkOfTheWild);
+            TryCastBuff(Thorns);
         }
 
-        void TryCastSpell(string name)
+        void TryCastBuff(string name)
         {
             if (!player.HasBuff(name) && player.IsSpellReady(name))
-                player.LuaCall($"CastSpellByName('{name}',1)");
+                player.CastSpell(name, player.Guid);
         }
     }
 }
