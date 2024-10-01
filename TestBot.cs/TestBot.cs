@@ -45,17 +45,15 @@ namespace TestBot
             {
                 var player = ObjectManager.Player;
 
-                var targetGuid = ObjectManager.Player.TargetGuid;
-                var target = ObjectManager.Units.FirstOrDefault(u => u.Guid == targetGuid);
-                if (target != null)
+                var result = player.LuaCallWithResults("{0} = IsAttackAction(84)");
+                if (result.Length > 0)
                 {
-                    var inLos = player.InLosWith(target.Position);
-                    Console.WriteLine(inLos);
-                }
-                else
-                {
-                    Console.WriteLine("Target is null.");
-                }
+                    Console.WriteLine(result.Length);
+                    foreach (var r in result)
+                    {
+                        Console.WriteLine(r);
+                    }
+                }    
             });
         }
     }

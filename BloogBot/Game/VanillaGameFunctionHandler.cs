@@ -1,5 +1,6 @@
 ﻿using BloogBot.Game.Enums;
 using System;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
 namespace BloogBot.Game
@@ -150,8 +151,8 @@ namespace BloogBot.Game
         {
             var intersection = new XYZ();
             var distance = start.DistanceTo(end);
-            var p1 = new XYZ(start.X, start.Y, start.Z + 5);
-            var p2 = new XYZ(end.X, end.Y, end.Z + 5);
+            var p1 = new XYZ(start.X, start.Y, start.Z + 2);
+            var p2 = new XYZ(end.X, end.Y, end.Z + 2);
 
             var result = IntersectFunction(ref p1, ref p2, ref intersection, ref distance, 0x00100111, (IntPtr)MemoryAddresses.IntersectFunPtr);
 
@@ -214,9 +215,17 @@ namespace BloogBot.Game
         static readonly ReleaseCorpseDelegate ReleaseCorpseFunction =
             Marshal.GetDelegateForFunctionPointer<ReleaseCorpseDelegate>((IntPtr)MemoryAddresses.ReleaseCorpseFunPtr);
 
+        [HandleProcessCorruptedStateExceptions]
         public void ReleaseCorpse(IntPtr ptr)
         {
-            ReleaseCorpseFunction(ptr);
+            try
+            {
+                ReleaseCorpseFunction(ptr);
+            }
+            catch (AccessViolationException)
+            {
+                Console.WriteLine("AccessViolationException occurred while trying to release corpse. Most likely, this is due to a transient error that caused the player pointer to temporarily equal IntPtr.Zero. The bot should keep trying to release and recover from this error.");
+            }
         }
 
         delegate int RetrieveCorpseDelegate();
