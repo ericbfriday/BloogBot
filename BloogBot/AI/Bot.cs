@@ -43,6 +43,54 @@ namespace BloogBot.AI
             stopCallback?.Invoke();
         }
 
+        public void Login(IDependencyContainer container, Action stopCallback)
+        {
+            this.stopCallback = stopCallback;
+
+            try
+            {
+                running = true;
+
+                ThreadSynchronizer.RunOnMainThread(() =>
+                {
+                    botStates.Push(new LoginState(botStates, container, onLoginComplete: () =>
+                    {
+                        currentLevel = ObjectManager.Player.Level;
+
+                        switch (container.BotSettings.LastUsedBotType)
+                        {
+                            case BotSettings.BotType.Grinding:
+                                botStates.Push(new GrindState(botStates, container));
+                                break;
+                            case BotSettings.BotType.Powerlevel:
+                                botStates.Push(new PowerlevelState(botStates, container));
+                                break;
+                            case BotSettings.BotType.Gathering:
+                                botStates.Push(new GatherState(botStates, container));
+                                break;
+                        }
+
+                        currentState = botStates.Peek().GetType();
+                        currentStateStartTime = Environment.TickCount;
+                        currentPosition = ObjectManager.Player.Position;
+                        currentPositionStartTime = Environment.TickCount;
+                        teleportCheckPosition = ObjectManager.Player.Position;
+
+                        if (container.BotSettings.LastUsedBotType != BotSettings.BotType.Gathering)
+                        {
+                            container.CheckForTravelPath(botStates, false);
+                        }
+                    }));
+                });
+
+                StartInternal(container);
+            }
+            catch (Exception e)
+            {
+                Logger.Log(e);
+            }
+        }
+
         public void Start(IDependencyContainer container, Action stopCallback)
         {
             this.stopCallback = stopCallback;
@@ -53,6 +101,8 @@ namespace BloogBot.AI
 
                 ThreadSynchronizer.RunOnMainThread(() =>
                 {
+                    container.BotSettings.LastUsedBotType = BotSettings.BotType.Grinding;
+
                     currentLevel = ObjectManager.Player.Level;
 
                     botStates.Push(new GrindState(botStates, container));
@@ -72,7 +122,7 @@ namespace BloogBot.AI
                 Logger.Log(e);
             }
         }
-        
+
         public void Travel(IDependencyContainer container, bool reverseTravelPath, Action callback)
         {
             try
@@ -125,7 +175,7 @@ namespace BloogBot.AI
             }
         }
 
-        public void StartPowerlevel(IDependencyContainer container,Action stopCallback)
+        public void StartPowerlevel(IDependencyContainer container, Action stopCallback)
         {
             this.stopCallback = stopCallback;
 
@@ -135,6 +185,8 @@ namespace BloogBot.AI
 
                 ThreadSynchronizer.RunOnMainThread(() =>
                 {
+                    container.BotSettings.LastUsedBotType = BotSettings.BotType.Powerlevel;
+
                     botStates.Push(new PowerlevelState(botStates, container));
 
                     currentState = botStates.Peek().GetType();
@@ -145,6 +197,35 @@ namespace BloogBot.AI
                 });
 
                 StartPowerlevelInternal(container);
+            }
+            catch (Exception e)
+            {
+                Logger.Log(e);
+            }
+        }
+
+        public void StartGathering(IDependencyContainer container, Action stopCallback)
+        {
+            this.stopCallback = stopCallback;
+
+            try
+            {
+                running = true;
+
+                ThreadSynchronizer.RunOnMainThread(() =>
+                {
+                    container.BotSettings.LastUsedBotType = BotSettings.BotType.Gathering;
+
+                    botStates.Push(new GatherState(botStates, container));
+
+                    currentState = botStates.Peek().GetType();
+                    currentStateStartTime = Environment.TickCount;
+                    currentPosition = ObjectManager.Player.Position;
+                    currentPositionStartTime = Environment.TickCount;
+                    teleportCheckPosition = ObjectManager.Player.Position;
+                });
+
+                StartInternal(container);
             }
             catch (Exception e)
             {
@@ -298,9 +379,30 @@ namespace BloogBot.AI
 
                     ThreadSynchronizer.RunOnMainThread(() =>
                     {
+                        // If we are disconnected, try logging in.
+                        if (LoginState.ShouldLogin() &&
+                            (botStates.Count == 0 || !(botStates.Peek() is LoginState)))
+                        {
+                            // We need to clear all states because some references are no longer
+                            // valid.
+                            botStates.Clear();
+                            botStates.Push(new GrindState(botStates, container));
+
+                            // Go to login state.
+                            botStates.Push(new LoginState(botStates, container));
+                        }
+
                         if (botStates.Count() == 0)
                         {
                             Stop();
+                            return;
+                        }
+
+                        // If we are logging in, just call update here and skip everything else
+                        // because most stuff will fail due to invalid references.
+                        if (botStates.Peek() is LoginState)
+                        {
+                            botStates.Peek().Update();
                             return;
                         }
 
@@ -342,6 +444,12 @@ namespace BloogBot.AI
 
                         if (botStates.Count > 0 && (botStates.Peek()?.GetType() == typeof(GrindState) || botStates.Peek()?.GetType() == typeof(PowerlevelState)))
                         {
+                            if (retrievingCorpse)
+                            {
+                                // We just resurrected. Let's rest.
+                                botStates.Push(container.CreateRestState(botStates, container));
+                            }
+
                             container.RunningErrands = false;
                             retrievingCorpse = false;
                         }
@@ -386,10 +494,12 @@ namespace BloogBot.AI
 
                             container.DisableTeleportChecker = true;
 
-                            botStates.Push(container.CreateRestState(botStates, container));
                             botStates.Push(new RetrieveCorpseState(botStates, container));
                             botStates.Push(new MoveToCorpseState(botStates, container));
                             botStates.Push(new ReleaseCorpseState(botStates, container));
+
+                            // Stop checking anything else. We can't do anything while dead.
+                            return;
                         }
 
                         var currentHotspot = container.GetCurrentHotspot();
@@ -414,13 +524,23 @@ namespace BloogBot.AI
                                 botStates.Push(new MoveToPositionState(botStates, container, currentHotspot.TravelPath.Waypoints[0]));
                             }
 
+                            // Since we are repairing, might as well sell items.
+                            botStates.Push(new SellItemsState(botStates, container, currentHotspot.RepairVendor.Name));
+
                             botStates.Push(new RepairEquipmentState(botStates, container, currentHotspot.RepairVendor.Name));
                             botStates.Push(new MoveToPositionState(botStates, container, currentHotspot.RepairVendor.Position));
                             container.CheckForTravelPath(botStates, true);
                         }
 
                         // if inventory is full
-                        if (Inventory.CountFreeSlots(false) == 0 && currentHotspot.Innkeeper != null && !container.RunningErrands)
+                        if (Inventory.CountFreeSlots(false) == 0 &&
+                            (
+                                // We can sell items at any of them.
+                                currentHotspot.Innkeeper != null ||
+                                currentHotspot.RepairVendor != null ||
+                                currentHotspot.AmmoVendor != null
+                            ) &&
+                            !container.RunningErrands)
                         {
                             ShapeshiftToHumanForm(container);
                             PopStackToBaseState();
@@ -432,9 +552,20 @@ namespace BloogBot.AI
                                 botStates.Push(new TravelState(botStates, container, currentHotspot.TravelPath.Waypoints, 0));
                                 botStates.Push(new MoveToPositionState(botStates, container, currentHotspot.TravelPath.Waypoints[0]));
                             }
-                            
-                            botStates.Push(new SellItemsState(botStates, container, currentHotspot.Innkeeper.Name));
-                            botStates.Push(new MoveToPositionState(botStates, container, currentHotspot.Innkeeper.Position));
+
+                            // Find a vendor to sell items.
+                            Npc vendor = currentHotspot.Innkeeper;
+                            if (vendor == null)
+                            {
+                                vendor = currentHotspot.RepairVendor;
+                            }
+                            if (vendor == null)
+                            {
+                                vendor = currentHotspot.AmmoVendor;
+                            }
+
+                            botStates.Push(new SellItemsState(botStates, container, vendor.Name));
+                            botStates.Push(new MoveToPositionState(botStates, container, vendor.Position));
                             container.CheckForTravelPath(botStates, true);
                         }
 
@@ -444,7 +575,7 @@ namespace BloogBot.AI
                             botStates.Peek()?.Update();
                         }
                     });
-                    
+
                     await Task.Delay(50);
 
                     container.Probe.UpdateLatency = $"{stopwatch.ElapsedMilliseconds}ms";

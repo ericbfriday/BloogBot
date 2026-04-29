@@ -1,5 +1,6 @@
 ﻿using BloogBot.Game;
 using BloogBot.Game.Objects;
+using System;
 using System.Collections.Generic;
 
 namespace BloogBot.AI.SharedStates
@@ -10,17 +11,30 @@ namespace BloogBot.AI.SharedStates
         readonly IDependencyContainer container;
         readonly Position destination;
         readonly bool use2DPop;
+        readonly bool ignoreThreats;
         readonly LocalPlayer player;
         readonly StuckHelper stuckHelper;
+        readonly int deadline;
+        readonly Action onDeadline;
 
         int stuckCount;
 
-        public MoveToPositionState(Stack<IBotState> botStates, IDependencyContainer container, Position destination, bool use2DPop = false)
+        public MoveToPositionState(
+            Stack<IBotState> botStates,
+            IDependencyContainer container,
+            Position destination,
+            bool use2DPop = false,
+            bool ignoreThreats = false,
+            int deadline = -1,
+            Action onDeadline = null)
         {
             this.botStates = botStates;
             this.container = container;
             this.destination = destination;
             this.use2DPop = use2DPop;
+            this.ignoreThreats = ignoreThreats;
+            this.deadline = deadline;
+            this.onDeadline = onDeadline;
             player = ObjectManager.Player;
             stuckHelper = new StuckHelper(botStates, container);
         }
@@ -29,7 +43,7 @@ namespace BloogBot.AI.SharedStates
         {
             var threat = container.FindThreat();
 
-            if (threat != null)
+            if (threat != null && !ignoreThreats)
             {
                 player.StopAllMovement();
                 botStates.Push(container.CreateMoveToTargetState(botStates, container, threat));
@@ -57,7 +71,15 @@ namespace BloogBot.AI.SharedStates
                     return;
                 }
             }
-            
+
+            if (deadline > 0 && Environment.TickCount > deadline)
+            {
+                player.StopAllMovement();
+                botStates.Pop();
+                onDeadline?.Invoke();
+                return;
+            }
+
             var nextWaypoint = Navigation.GetNextWaypoint(ObjectManager.MapId, player.Position, destination, false);
             player.MoveToward(nextWaypoint);
         }

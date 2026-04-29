@@ -1,18 +1,19 @@
 ﻿using BloogBot;
 using BloogBot.AI;
 using BloogBot.Game;
+using BloogBot.Game.Enums;
 using BloogBot.Game.Objects;
+using System;
 using System.Collections.Generic;
 
 namespace FeralDruidBot
 {
     class HealSelfState : IBotState
     {
-        const string BearForm = "Bear Form";
-        const string CatForm = "Cat Form";
-
         const string WarStomp = "War Stomp";
         const string HealingTouch = "Healing Touch";
+        const string SurvivalInstincts = "Survival Instincts";
+        const string Barkskin = "Barkskin";
 
         readonly Stack<IBotState> botStates;
         readonly WoWUnit target;
@@ -29,17 +30,20 @@ namespace FeralDruidBot
         {
             if (player.IsCasting) return;
 
-            if (player.CurrentShapeshiftForm == BearForm && Wait.For("BearFormDelay", 1000, true))
-                CastSpell(BearForm);
-
-            if (player.CurrentShapeshiftForm == CatForm && Wait.For("CatFormDelay", 1000, true))
-                CastSpell(CatForm);
+            player.StopAllMovement();
 
             if (player.HealthPercent > 70 || player.Mana < player.GetManaCost(HealingTouch))
             {
                 Wait.RemoveAll();
                 botStates.Pop();
                 return;
+            }
+
+            CastSpell(SurvivalInstincts);
+
+            if (!player.HasBuff(SurvivalInstincts))
+            {
+                CastSpell(Barkskin);
             }
 
             if (player.IsSpellReady(WarStomp) && player.Position.DistanceTo(target.Position) <= 8)
@@ -50,10 +54,15 @@ namespace FeralDruidBot
 
         void CastSpell(string name, bool castOnSelf = false)
         {
-            if (player.IsSpellReady(name))
+            if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
             {
                 var castOnSelfString = castOnSelf ? ",1" : "";
-                player.LuaCall($"CastSpellByName('{name}'{castOnSelfString})");
+                player.LuaCall($"CastSpellByName(\"{name}\"{castOnSelfString})");
+            }
+            else
+            {
+                var targetGuid = castOnSelf ? player.Guid : target.Guid;
+                player.CastSpell(name, targetGuid);
             }
         }
     }

@@ -43,13 +43,13 @@ namespace BloogBot
         public bool CreatureTypeUndead { get; set; }
 
         public bool CreatureTypeGiant { get; set; }
-        
+
         public bool UnitReactionHostile { get; set; }
 
         public bool UnitReactionUnfriendly { get; set; }
 
         public bool UnitReactionNeutral { get; set; }
-        
+
         public bool LootPoor { get; set; }
 
         public bool LootCommon { get; set; }
@@ -69,6 +69,8 @@ namespace BloogBot
         public int? GrindingHotspotId { get; set; }
 
         public int? CurrentTravelPathId { get; set; }
+
+        public int? CurrentGatherRouteId { get; set; }
 
         public string CurrentBotName { get; set; }
 
@@ -94,11 +96,22 @@ namespace BloogBot
 
         public bool UseVerboseLogging { get; set; }
 
+        public bool PermanentlyBlacklistUnreachableTargets { get; set; }
+
+        public string Username { get; set; }
+
+        public string Password { get; set; }
+
+        public BotType LastUsedBotType { get; set; } = BotType.Grinding;
+
         [JsonIgnore]
         public Hotspot GrindingHotspot { get; set; }
 
         [JsonIgnore]
         public TravelPath CurrentTravelPath { get; set; }
+
+        [JsonIgnore]
+        public GatherRoute CurrentGatherRoute { get; set; }
 
         [JsonIgnore]
         public IList<string> CreatureTypes
@@ -132,6 +145,13 @@ namespace BloogBot
 
                 return unitReactions;
             }
+        }
+
+        public enum BotType
+        {
+            Grinding,
+            Powerlevel,
+            Gathering,
         }
     }
 }

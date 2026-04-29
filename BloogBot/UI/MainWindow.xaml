@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BloogBot.UI"
         mc:Ignorable="d"
-        Title="BloogBot" MinHeight="900" Height="900" MaxHeight="900" MinWidth="437" Width="400" MaxWidth="400" ResizeMode="CanMinimize" SizeToContent="WidthAndHeight">
+        Title="BloogBot" MinHeight="1000" Height="1000" MaxHeight="1000" MinWidth="437" Width="400" MaxWidth="400" ResizeMode="CanMinimize" SizeToContent="WidthAndHeight">
     <Window.DataContext>
         <local:MainViewModel />
     </Window.DataContext>
@@ -44,9 +44,20 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
                         <Button
+                            Grid.Column="0"
+                            Command="{Binding LoginCommand}"
+                            IsEnabled="{Binding LoginCommandEnabled}"
+                            Content="Login"
+                            Height="24"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,10,0"
+                            Padding="6,0,6,0"/>
+                        <Button
+                            Grid.Column="1"
                             Command="{Binding StartCommand}"
                             IsEnabled="{Binding StartCommandEnabled}"
                             Content="Start"
@@ -55,7 +66,7 @@
                             Margin="0,0,10,0"
                             Padding="6,0,6,0"/>
                         <Button
-                            Grid.Column="1"
+                            Grid.Column="2"
                             Command="{Binding StopCommand}"
                             IsEnabled="{Binding StopCommandEnabled}"
                             Content="Stop"
@@ -64,7 +75,7 @@
                             Margin="0,0,10,0"
                             Padding="6,0,6,0"/>
                         <Button
-                            Grid.Column="2"
+                            Grid.Column="3"
                             Command="{Binding ReloadBotsCommand}"
                             IsEnabled="{Binding ReloadBotsCommandEnabled}"
                             Content="Reload Bots"
@@ -73,7 +84,7 @@
                             Margin="0,0,10,0"
                             Padding="6,0,6,0"/>
                         <Button
-                            Grid.Column="3"
+                            Grid.Column="4"
                             Command="{Binding BlacklistCurrentTargetCommand}"
                             Content="Blacklist Target"
                             Height="24"
@@ -81,7 +92,7 @@
                             Margin="0,0,10,0"
                             Padding="6,0,6,0"/>
                         <Button
-                            Grid.Column="4"
+                            Grid.Column="5"
                             Command="{Binding TestCommand}"
                             Content="Test"
                             Height="24"
@@ -276,6 +287,8 @@
                             <RowDefinition Height="auto"/>
                             <RowDefinition Height="auto"/>
                             <RowDefinition Height="auto"/>
+                            <RowDefinition Height="auto"/>
+                            <RowDefinition Height="auto"/>
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="114"/>
@@ -316,8 +329,14 @@
                         <Label Grid.Row="12" Content="Target IsChanneling:" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"/>
                         <Label Grid.Row="12" Grid.Column="1" Content="{Binding TargetIsChanneling}" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" Grid.ColumnSpan="2" />
 
-                        <Label Grid.Row="13" Content="Update Latency:" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"/>
-                        <Label Grid.Row="13" Grid.Column="1" Content="{Binding UpdateLatency}" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" Grid.ColumnSpan="2" />
+                        <Label Grid.Row="13" Content="Target Buffs:" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"/>
+                        <Label Grid.Row="13" Grid.Column="1" Content="{Binding TargetBuffs}" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" Grid.ColumnSpan="2" />
+
+                        <Label Grid.Row="14" Content="Target Debuffs:" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"/>
+                        <Label Grid.Row="14" Grid.Column="1" Content="{Binding TargetDebuffs}" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" Grid.ColumnSpan="2" />
+
+                        <Label Grid.Row="15" Content="Update Latency:" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"/>
+                        <Label Grid.Row="15" Grid.Column="1" Content="{Binding UpdateLatency}" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" Grid.ColumnSpan="2" />
                     </Grid>
                 </Grid>
             </TabItem>
@@ -340,6 +359,11 @@
                         <RowDefinition Height="10"/>
                         <RowDefinition Height="24"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="24"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
                         <RowDefinition Height="24"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
@@ -723,15 +747,70 @@
                             VerticalContentAlignment="Center"/>
                     </Grid>
 
+                    <Separator Grid.Row="13" Grid.ColumnSpan="2" />
+
                     <Label
-                        Grid.Row="13"
+                        Grid.Row="14"
+                        Padding="0"
+                        Content="LOGIN"
+                        VerticalContentAlignment="Center"
+                        FontWeight="Bold" Grid.ColumnSpan="2"/>
+
+                    <Grid Grid.Row="15" Grid.ColumnSpan="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+
+                        <Label
+                            Grid.Row="1"
+                            Content="Username:"
+                            VerticalContentAlignment="Center"
+                            HorizontalContentAlignment="Right"/>
+                        <TextBox
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Text="{Binding Path=Username}"
+                            Margin="0,4,0,4"
+                            VerticalContentAlignment="Center"/>
+                    </Grid>
+
+                    <Grid Grid.Row="16" Grid.ColumnSpan="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+
+                        <Label
+                            Grid.Row="1"
+                            Content="Password:"
+                            VerticalContentAlignment="Center"
+                            HorizontalContentAlignment="Right"/>
+                        <TextBox
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Text="{Binding Path=Password}"
+                            Margin="0,4,0,4"
+                            VerticalContentAlignment="Center"/>
+                    </Grid>
+
+                    <Separator Grid.Row="17" Grid.ColumnSpan="2" />
+
+                    <Label
+                        Grid.Row="18"
                         Padding="0"
                         Content="MISCELLANEOUS"
                         VerticalContentAlignment="Center"
                         FontWeight="Bold" Grid.ColumnSpan="2"/>
 
                     <CheckBox
-                        Grid.Row="14"
+                        Grid.Row="19"
                         Margin="12,2,8,2"
                         Content="Use Verbose Logging"
                         IsChecked="{Binding UseVerboseLogging}" Grid.ColumnSpan="2"/>
@@ -1265,6 +1344,166 @@
                             Margin="0,4,0,4"/>
                 </Grid>
 
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    Gathering
+                </TabItem.Header>
+                <Grid Margin="10,4,10,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Button
+                            Command="{Binding StartGatheringCommand}"
+                            IsEnabled="{Binding StartGatheringCommandEnabled}"
+                            Content="Start"
+                            Height="24"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,10,0"
+                            Padding="6,0,6,0"/>
+
+                        <Button
+                            Grid.Column="1"
+                            Command="{Binding StopCommand}"
+                            IsEnabled="{Binding StopCommandEnabled}"
+                            Content="Stop"
+                            Height="24"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,10,0"
+                            Padding="6,0,6,0"/>
+                    </Grid>
+
+                    <Grid Grid.Row="1" Grid.ColumnSpan="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="auto"/>
+                            <RowDefinition Height="auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition  />
+                        </Grid.ColumnDefinitions>
+
+                        <Label
+                            Content="Gathering Route:"
+                            VerticalContentAlignment="Center"
+                            HorizontalContentAlignment="Right"/>
+                        <ComboBox
+                            Grid.Column="1"
+                            Margin="0,4"
+                            VerticalContentAlignment="Center"
+                            SelectedItem="{Binding Path=CurrentGatherRoute, Mode=TwoWay}"
+                            ItemsSource="{Binding Path=GatherRoutes, Mode=OneWay}"
+                            IsEnabled="{Binding Path=CurrentGatherRouteEnabled}" Grid.ColumnSpan="2">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock>
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="{}{0}">
+                                                <Binding Path="Name"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Button
+                            Command="{Binding SaveGatherRouteCommand}"
+                            IsEnabled="{Binding SaveGatherRouteCommandEnabled}"
+                            Content="Save Route"
+                            Height="24"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,10,0"
+                            Padding="6,0,6,0"/>
+                    </Grid>
+
+
+                    <Grid Grid.Row="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Label
+                            Grid.Row="0"
+                            Content="Name:"
+                            VerticalContentAlignment="Center"
+                            HorizontalContentAlignment="Right"/>
+                        <TextBox
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Text="{Binding Path=NewGatherRouteName}"
+                            VerticalContentAlignment="Center"
+                            Margin="0,4,6,4"/>
+
+                        <Label
+                            Grid.Row="1"
+                            Content="Node Names:"
+                            VerticalContentAlignment="Center"
+                            HorizontalContentAlignment="Right"/>
+                        <TextBox
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Text="{Binding Path=NewGatherRouteNodeNames}"
+                            VerticalContentAlignment="Center"
+                            Margin="0,4,6,4"/>
+
+                        <Label
+                            Grid.Row="2"
+                            Content="Travel Path:"
+                            VerticalContentAlignment="Center"
+                            HorizontalContentAlignment="Right"/>
+                        <ComboBox
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Margin="0,4,6,4"
+                            IsEditable="False"
+                            VerticalContentAlignment="Center"
+                            SelectedItem="{Binding Path=NewGatherRouteTravelPath, Mode=TwoWay}"
+                            ItemsSource="{Binding Path=TravelPaths, Mode=OneWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock>
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="{}{0}">
+                                                <Binding Path="Name"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                </Grid>
             </TabItem>
         </TabControl>
         <Grid Grid.Row="1" Margin="10,10,10,0">

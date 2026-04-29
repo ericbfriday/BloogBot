@@ -13,6 +13,8 @@ namespace BloogBot.AI
 
         bool Running();
 
+        void Login(IDependencyContainer container, Action stopCallback);
+
         void Start(IDependencyContainer container, Action stopCallback);
 
         void Stop();
@@ -20,6 +22,8 @@ namespace BloogBot.AI
         void Travel(IDependencyContainer container, bool reverseTravelPath, Action callback);
 
         void StartPowerlevel(IDependencyContainer container, Action stopCallback);
+
+        void StartGathering(IDependencyContainer container, Action stopCallback);
 
         void Test(IDependencyContainer container);
     }

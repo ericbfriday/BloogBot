@@ -29,12 +29,19 @@ namespace TestBot
         IBotState CreatePowerlevelCombatState(Stack<IBotState> botStates, IDependencyContainer container, WoWUnit target, WoWPlayer powerlevelTarget) =>
             new PowerlevelCombatState(botStates, container, target, powerlevelTarget);
 
+        IBotState CreateCombatState(
+            Stack<IBotState> botStates,
+            IDependencyContainer container,
+            WoWUnit target,
+            bool loot = true) => new CombatState(botStates, container, target, loot);
+
         public IDependencyContainer GetDependencyContainer(BotSettings botSettings, Probe probe, IEnumerable<Hotspot> hotspots) =>
             new DependencyContainer(
                 AdditionalTargetingCriteria,
                 CreateRestState,
                 CreateMoveToTargetState,
                 CreatePowerlevelCombatState,
+                CreateCombatState,
                 botSettings,
                 probe,
                 hotspots);
@@ -43,17 +50,18 @@ namespace TestBot
         {
             ThreadSynchronizer.RunOnMainThread(() =>
             {
-                var player = ObjectManager.Player;
-
-                var result = player.LuaCallWithResults("{0} = IsAttackAction(84)");
-                if (result.Length > 0)
+                string[] results = Functions.LuaCallWithResult(@"
+                    {0}, {1}, {2}, {3} = GetWeaponEnchantInfo()
+                ");
+                Console.WriteLine(results.Length);
+                foreach (var result in results)
                 {
-                    Console.WriteLine(result.Length);
-                    foreach (var r in result)
-                    {
-                        Console.WriteLine(r);
-                    }
-                }    
+                    Console.WriteLine(result);
+                }
+                // var vein = ObjectManager.GameObjects.First(o => o.Name == "Copper Vein");
+                // var nextWaypoint = Navigation.GetNextWaypoint(ObjectManager.MapId, ObjectManager.Player.Position, vein.Position, false);
+                // ObjectManager.Player.MoveToward(nextWaypoint);
+                // vein.Interact();
             });
         }
     }

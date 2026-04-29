@@ -1,4 +1,5 @@
-﻿using BloogBot.AI;
+﻿using BloogBot;
+using BloogBot.AI;
 using BloogBot.AI.SharedStates;
 using BloogBot.Game;
 using BloogBot.Game.Enums;
@@ -6,6 +7,7 @@ using BloogBot.Game.Objects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security;
 
 namespace FrostMageBot
 {
@@ -30,21 +32,44 @@ namespace FrostMageBot
         const string IceBarrier = "Ice Barrier";
         const string IcyVeins = "Icy Veins";
         const string SummonWaterElemental = "Summon Water Elemental";
+        const string BrainFreezeBuff = "Fireball!";
+        const string FrostfireBolt = "Frostfire Bolt";
+        const string DeepFreeze = "Deep Freeze";
+        const string FingersOfFrostBuff = "Fingers of Frost";
+        const string IceLance = "Ice Lance";
+        const string ShatteredBarrier = "Shattered Barrier";
 
         readonly LocalPlayer player;
         readonly WoWUnit target;
         readonly string nuke;
         readonly int range;
+        readonly Stack<IBotState> botStates;
+        readonly IDependencyContainer container;
 
         bool frostNovaBackpedaling;
         int frostNovaBackpedalStartTime;
         bool frostNovaJumped;
         bool frostNovaStartedMoving;
+        bool unstucking;
 
-        internal CombatState(Stack<IBotState> botStates, IDependencyContainer container, WoWUnit target) : base(botStates, container, target, 29 + (ObjectManager.GetTalentRank(3, 11) * 3))
+        int combatStateStartTime;
+
+        internal CombatState(
+            Stack<IBotState> botStates,
+            IDependencyContainer container,
+            WoWUnit target,
+            bool loot = true) :
+            base(
+                botStates,
+                container,
+                target,
+                desiredRange: 29 + (ObjectManager.GetTalentRank(3, 11) * 3),
+                loot)
         {
             player = ObjectManager.Player;
             this.target = target;
+            this.botStates = botStates;
+            this.container = container;
 
             if (!player.KnowsSpell(Frostbolt))
                 nuke = Fireball;
@@ -58,6 +83,8 @@ namespace FrostMageBot
                 nuke = Fireball;
 
             range = 29 + (ObjectManager.GetTalentRank(3, 11) * 3);
+
+            combatStateStartTime = Environment.TickCount;
         }
 
         public new void Update()
@@ -89,7 +116,46 @@ namespace FrostMageBot
             if (base.Update())
                 return;
 
-            TryCastSpell(Evocation, 0, int.MaxValue, (player.HealthPercent > 50 || player.HasBuff(IceBarrier)) && player.ManaPercent < 8 && target.HealthPercent > 15);
+            if (unstucking)
+            {
+                // Move towards the target.
+                var nextWaypoint = Navigation.GetNextWaypoint(
+                    ObjectManager.MapId, player.Position, target.Position, false);
+                player.MoveToward(nextWaypoint);
+
+                // Once we've dealt any damage, we are no longer stuck.
+                if (target.HealthPercent < 100)
+                {
+                    player.StopAllMovement();
+                    unstucking = false;
+                }
+
+                // If we get any threat while moving, just fight that enemy instead.
+                var threat = container.FindThreat();
+                if (threat != null)
+                {
+                    botStates.Pop();
+                    botStates.Push(container.CreateMoveToTargetState(botStates, container, threat));
+                    return;
+                }
+
+                // No return here. We keep trying to cast spells. Although only instant spells will
+                // succeed.
+            }
+
+            // If we haven't dealt any damage to the target for 30 seconds, we're probably stuck.
+            if (Environment.TickCount - combatStateStartTime > 30 * 1000 && target.HealthPercent >= 99)
+            {
+                unstucking = true;
+                botStates.Push(new StuckState(botStates, container));
+
+                // Reset the timer so we don't keep trying to unstuck.
+                combatStateStartTime = Environment.TickCount;
+
+                return;
+            }
+
+            TryCastSpell(Evocation, 0, int.MaxValue, (player.HealthPercent > 50 || PlayerHasIceBarrier) && player.ManaPercent < 8 && target.HealthPercent > 15);
 
             var wand = Inventory.GetEquippedItem(EquipSlot.Ranged);
             if (wand != null && player.ManaPercent <= 10 && !player.IsCasting && !player.IsChanneling)
@@ -108,13 +174,21 @@ namespace FrostMageBot
 
                 TryCastSpell(Counterspell, 0, 30, target.Mana > 0 && target.IsCasting);
 
-                TryCastSpell(IceBarrier, 0, 50, !player.HasBuff(IceBarrier) && (ObjectManager.Aggressors.Count() >= 2 || (!player.IsSpellReady(FrostNova) && player.HealthPercent < 95 && player.ManaPercent > 40 && (target.HealthPercent > 20 || player.HealthPercent < 10))));
+                TryCastSpell(IceBarrier, 0, 50, !PlayerHasIceBarrier && (ObjectManager.Aggressors.Count() >= 2 || (!player.IsSpellReady(FrostNova) && player.HealthPercent < 95 && player.ManaPercent > 40 && (target.HealthPercent > 20 || player.HealthPercent < 10))));
 
                 TryCastSpell(FrostNova, 0, 9, target.TargetGuid == player.Guid && (target.HealthPercent > 20 || player.HealthPercent < 30) && !IsTargetFrozen && !ObjectManager.Units.Any(u => u.Guid != target.Guid && u.HealthPercent > 0 && u.Guid != player.Guid && u.Position.DistanceTo(player.Position) <= 12), callback: FrostNovaCallback);
+
+                TryCastSpell(DeepFreeze, 0, range, IsTargetFrozen || player.HasBuff(FingersOfFrostBuff));
+
+                TryCastSpell(IceLance, 0, range, IsTargetFrozen || player.HasBuff(FingersOfFrostBuff));
 
                 TryCastSpell(ConeOfCold, 0, 8, player.Level >= 30 && target.HealthPercent > 20 && IsTargetFrozen);
 
                 TryCastSpell(FireBlast, 0, 20, !IsTargetFrozen);
+
+                TryCastSpell(FrostfireBolt, 0, 40, player.HasBuff(BrainFreezeBuff));
+
+                TryCastSpell(Fireball, 0, 35, player.HasBuff(BrainFreezeBuff));
 
                 // Either Frostbolt or Fireball depending on what is stronger. Will always use Frostbolt at level 8+.
                 TryCastSpell(nuke, 0, range);
@@ -129,6 +203,15 @@ namespace FrostMageBot
             frostNovaBackpedalStartTime = Environment.TickCount;
         };
 
-        bool IsTargetFrozen => target.HasDebuff(Frostbite) || target.HasDebuff(FrostNova);
+        // Sometimes frostbite and frostnova are considered buffs.
+        bool IsTargetFrozen => target.HasDebuff(Frostbite) ||
+            target.HasBuff(Frostbite) ||
+            target.HasDebuff(FrostNova) ||
+            target.HasBuff(FrostNova) ||
+            target.HasBuff(DeepFreeze) ||
+            target.HasBuff(ShatteredBarrier);
+
+        // Sometimes ice barrier is considered a debuff.
+        bool PlayerHasIceBarrier => player.HasBuff(IceBarrier) || player.HasDebuff(IceBarrier);
     }
 }

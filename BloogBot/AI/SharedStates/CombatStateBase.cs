@@ -1,6 +1,7 @@
 ﻿using BloogBot.Game;
 using BloogBot.Game.Enums;
 using BloogBot.Game.Objects;
+using BloogBot.Properties;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,13 +19,21 @@ namespace BloogBot.AI.SharedStates
         readonly int desiredRange;
         readonly LocalPlayer player;
         readonly WoWUnit target;
+        readonly bool loot;
 
         bool backpedaling;
         int backpedalStartTime;
         bool noLos;
         int noLosStartTime;
 
-        public CombatStateBase(Stack<IBotState> botStates, IDependencyContainer container, WoWUnit target, int desiredRange)
+        int combatStateStartTime;
+
+        public CombatStateBase(
+            Stack<IBotState> botStates,
+            IDependencyContainer container,
+            WoWUnit target,
+            int desiredRange,
+            bool loot = true)
         {
             player = ObjectManager.Player;
             this.target = target;
@@ -33,6 +42,9 @@ namespace BloogBot.AI.SharedStates
             this.botStates = botStates;
             this.container = container;
             this.desiredRange = desiredRange;
+            this.loot = loot;
+
+            combatStateStartTime = Environment.TickCount;
 
             WoWEventHandler.OnErrorMessage += OnErrorMessageCallback;
         }
@@ -63,6 +75,20 @@ namespace BloogBot.AI.SharedStates
                 return true;
             }
 
+            // If we haven't dealt any damage to the target for 30 seconds, we're probably stuck.
+            if (Environment.TickCount - combatStateStartTime > 30 * 1000 && target.HealthPercent >= 99)
+            {
+                // Add the target to the blacklist and stop fighting it.
+                container.Probe.BlacklistedMobIds.Add(target.Guid);
+                if (container.BotSettings.PermanentlyBlacklistUnreachableTargets)
+                {
+                    Repository.AddBlacklistedMob(target.Guid);
+                }
+
+                botStates.Pop();
+                return true;
+            }
+
             // see if somebody else stole the mob we were targeting
             if (target.TappedByOther)
             {
@@ -82,7 +108,24 @@ namespace BloogBot.AI.SharedStates
                 if (Wait.For("PopCombatState", 1500))
                 {
                     CleanUp();
-                    botStates.Push(new LootState(botStates, container, target));
+                    if (loot)
+                    {
+                        botStates.Push(new LootState(botStates, container, target));
+                    }
+                }
+
+                var threat = container.FindThreat();
+
+                if (threat != null)
+                {
+                    // We also need to do the same check against the threat we found.
+                    var checkThreat = ObjectManager.Units.FirstOrDefault(u => u.Guid == threat.Guid);
+                    if (threat.Health == 0 || threat.TappedByOther || checkThreat == null)
+                    {
+                        return true;
+                    }
+
+                    botStates.Push(container.CreateCombatState(botStates, container, threat, loot));
                 }
 
                 return true;
@@ -207,7 +250,6 @@ namespace BloogBot.AI.SharedStates
                     player.CastSpell(name, target.Guid);
                     callback?.Invoke();
                 }
-                
             }
         }
 

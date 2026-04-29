@@ -24,6 +24,7 @@ namespace BloogBot.AI
             Func<Stack<IBotState>, IDependencyContainer, IBotState> createRestState,
             Func<Stack<IBotState>, IDependencyContainer, WoWUnit, IBotState> createMoveToTargetState,
             Func<Stack<IBotState>, IDependencyContainer, WoWUnit, WoWPlayer, IBotState> createPowerlevelCombatState,
+            Func<Stack<IBotState>, IDependencyContainer, WoWUnit, bool, IBotState> createCombatState,
             BotSettings botSettings,
             Probe probe,
             IEnumerable<Hotspot> hotspots)
@@ -33,6 +34,7 @@ namespace BloogBot.AI
             CreateRestState = createRestState;
             CreateMoveToTargetState = createMoveToTargetState;
             CreatePowerlevelCombatState = createPowerlevelCombatState;
+            CreateCombatState = createCombatState;
             BotSettings = botSettings;
             Probe = probe;
             Hotspots = hotspots;
@@ -44,6 +46,8 @@ namespace BloogBot.AI
 
         public Func<Stack<IBotState>, IDependencyContainer, WoWUnit, WoWPlayer, IBotState> CreatePowerlevelCombatState { get; }
 
+        public Func<Stack<IBotState>, IDependencyContainer, WoWUnit, bool, IBotState> CreateCombatState { get; }
+
         public BotSettings BotSettings { get; }
 
         public Probe Probe { get; }
@@ -53,6 +57,12 @@ namespace BloogBot.AI
         // this is broken up into multiple sub-expressions to improve readability and debuggability
         public WoWUnit FindThreat()
         {
+            // If we are dead, nothing is a threat.
+            if (ObjectManager.Player.InGhostForm)
+            {
+                return null;
+            }
+
             var potentialThreats = ObjectManager.Units
                 .Where(u =>
                     u.TargetGuid == ObjectManager.Player.Guid ||
@@ -89,8 +99,13 @@ namespace BloogBot.AI
         public WoWUnit FindClosestTarget()
         {
             var threat = FindThreat();
-            if (threat != null)
-                return threat;
+
+            // Make sure this threat is not a dead summoned unit.
+            var checkThreat = ObjectManager.Units.FirstOrDefault(u => u.Guid == threat?.Guid);
+            if (threat != null && checkThreat != null && checkThreat.Health != 0 && !checkThreat.TappedByOther)
+            {
+                return checkThreat;
+            }
 
             var potentialTargetsList = ObjectManager.Units
                 // only consider units that are not null, and whose name and position are not null
@@ -130,6 +145,8 @@ namespace BloogBot.AI
         }
 
         public Hotspot GetCurrentHotspot() => BotSettings.GrindingHotspot;
+
+        public GatherRoute GetCurrentGatherRoute() => BotSettings.CurrentGatherRoute;
 
         public void CheckForTravelPath(Stack<IBotState> botStates, bool reverse, bool needsToRest = true)
         {

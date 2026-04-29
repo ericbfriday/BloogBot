@@ -1,15 +1,16 @@
 ﻿using BloogBot;
 using BloogBot.AI;
+using BloogBot.AI.SharedStates;
 using BloogBot.Game;
 using BloogBot.Game.Objects;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace FeralDruidBot
 {
-    class MoveToTargetState : IBotState
+    class MoveToTargetState : MoveToTargetStateBase, IBotState
     {
         const string Wrath = "Wrath";
+        const string FeralCharge = "Feral Charge - Cat";
 
         readonly Stack<IBotState> botStates;
         readonly IDependencyContainer container;
@@ -17,7 +18,9 @@ namespace FeralDruidBot
         readonly LocalPlayer player;
         readonly StuckHelper stuckHelper;
 
-        internal MoveToTargetState(Stack<IBotState> botStates, IDependencyContainer container, WoWUnit target)
+        internal MoveToTargetState(
+            Stack<IBotState> botStates, IDependencyContainer container, WoWUnit target) :
+            base(botStates, container, target)
         {
             this.botStates = botStates;
             this.container = container;
@@ -26,35 +29,42 @@ namespace FeralDruidBot
             stuckHelper = new StuckHelper(botStates, container);
         }
 
-        public void Update()
+        public new void Update()
         {
-            if (target.TappedByOther || (ObjectManager.Aggressors.Count() > 0 && !ObjectManager.Aggressors.Any(a => a.Guid == target.Guid)))
+            if (player.IsCasting)
             {
-                player.StopAllMovement();
+                return;
+            }
+
+            if (base.Update())
+            {
                 Wait.RemoveAll();
-                botStates.Pop();
                 return;
             }
 
             stuckHelper.CheckIfStuck();
-            
-            if (player.Position.DistanceTo(target.Position) < 27 && !player.IsCasting && player.IsSpellReady(Wrath) && player.InLosWith(target.Position))
+
+            if (player.Position.DistanceTo(target.Position) < 25 && player.InLosWith(target.Position))
             {
                 if (player.IsMoving)
                     player.StopAllMovement();
 
-                if (Wait.For("PullWithWrathDelay", 100))
+                if (Wait.For("PullWithWrathDelay", 250))
                 {
-                    if (!player.IsInCombat)
-                        player.LuaCall($"CastSpellByName('{Wrath}')");
-
-                    if (player.IsCasting || player.CurrentShapeshiftForm != "Human Form" || player.IsInCombat)
+                    if (!player.IsInCombat && player.Level <= 12)
                     {
-                        player.StopAllMovement();
-                        Wait.RemoveAll();
-                        botStates.Pop();
-                        botStates.Push(new CombatState(botStates, container, target));
+                        // Human form
+                        player.LuaCall($"CastSpellByName('{Wrath}')");
                     }
+                    else if (player.Level >= 20)
+                    {
+                        // Cat form
+                        player.LuaCall($"CastSpellByName('{FeralCharge}')");
+                    }
+
+                    Wait.RemoveAll();
+                    botStates.Pop();
+                    botStates.Push(new CombatState(botStates, container, target));
                 }
                 return;
             }
