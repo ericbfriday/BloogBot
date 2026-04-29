@@ -15,24 +15,30 @@ namespace FrostMageBot
         readonly IDependencyContainer container;
         readonly LocalPlayer player;
 
-        readonly WoWItem foodItem;
-        readonly WoWItem drinkItem;
+        WoWItem foodItem;
+        WoWItem drinkItem;
 
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
         {
             this.botStates = botStates;
             this.container = container;
             player = ObjectManager.Player;
-
-            foodItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Food);
-
-            drinkItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Drink);
         }
 
         public void Update()
         {
+            foodItem = Inventory.GetAllItems()
+                .Where(IsFoodItem)
+                .OrderByDescending(i => i.Info.Name == container.BotSettings.Food)
+                .ThenByDescending(i => i.StackCount)
+                .FirstOrDefault();
+
+            drinkItem = Inventory.GetAllItems()
+                .Where(IsDrinkItem)
+                .OrderByDescending(i => i.Info.Name == container.BotSettings.Drink)
+                .ThenByDescending(i => i.StackCount)
+                .FirstOrDefault();
+
             if (player.IsChanneling)
                 return;
 
@@ -70,5 +76,15 @@ namespace FrostMageBot
         bool ManaOk => drinkItem == null || player.ManaPercent >= 90 || (player.ManaPercent >= 80 && !player.IsDrinking);
 
         bool InCombat => ObjectManager.Player.IsInCombat || ObjectManager.Units.Any(u => u.TargetGuid == ObjectManager.Player.Guid);
+
+        bool IsFoodItem(WoWItem item) =>
+            item?.Info?.Name == container.BotSettings.Food || IsConjuredFood(item);
+
+        bool IsDrinkItem(WoWItem item) =>
+            item?.Info?.Name == container.BotSettings.Drink || IsConjuredDrink(item);
+
+        bool IsConjuredFood(WoWItem item) => item?.Info?.Name?.StartsWith("Conjured ") == true && !item.Info.Name.Contains("Water");
+
+        bool IsConjuredDrink(WoWItem item) => item?.Info?.Name?.StartsWith("Conjured ") == true && item.Info.Name.Contains("Water");
     }
 }

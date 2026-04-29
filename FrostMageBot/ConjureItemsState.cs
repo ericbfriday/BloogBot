@@ -1,4 +1,5 @@
-﻿using BloogBot.AI;
+﻿using BloogBot;
+using BloogBot.AI;
 using BloogBot.Game;
 using BloogBot.Game.Objects;
 using System.Collections.Generic;
@@ -28,10 +29,16 @@ namespace FrostMageBot
         public void Update()
         {
             foodItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Food);
+                .Where(IsFoodItem)
+                .OrderByDescending(i => i.Info.Name == container.BotSettings.Food)
+                .ThenByDescending(i => i.StackCount)
+                .FirstOrDefault();
 
             drinkItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Drink);
+                .Where(IsDrinkItem)
+                .OrderByDescending(i => i.Info.Name == container.BotSettings.Drink)
+                .ThenByDescending(i => i.StackCount)
+                .FirstOrDefault();
 
             if (player.IsCasting)
                 return;
@@ -55,12 +62,16 @@ namespace FrostMageBot
                 return;
             }
 
-            var foodCount = foodItem == null ? 0 : Inventory.GetItemCount(foodItem.ItemId);
-            if (foodItem == null || foodCount <= 2)
+            var foodCount = Inventory.GetAllItems()
+                .Where(IsFoodItem)
+                .Sum(i => i.StackCount);
+            if ((foodItem == null || foodCount <= 2) && Wait.For("FrostMageConjureFood", 3000, true))
                 TryCastSpell(ConjureFood);
 
-            var drinkCount = drinkItem == null ? 0 : Inventory.GetItemCount(drinkItem.ItemId);
-            if (drinkItem == null || drinkCount <= 2)
+            var drinkCount = Inventory.GetAllItems()
+                .Where(IsDrinkItem)
+                .Sum(i => i.StackCount);
+            if ((drinkItem == null || drinkCount <= 2) && Wait.For("FrostMageConjureDrink", 3000, true))
                 TryCastSpell(ConjureWater);
         }
 
@@ -69,5 +80,15 @@ namespace FrostMageBot
             if (player.IsSpellReady(name) && !player.IsCasting)
                 player.LuaCall($"CastSpellByName('{name}')");
         }
+
+        bool IsFoodItem(WoWItem item) =>
+            item?.Info?.Name == container.BotSettings.Food || IsConjuredFood(item);
+
+        bool IsDrinkItem(WoWItem item) =>
+            item?.Info?.Name == container.BotSettings.Drink || IsConjuredDrink(item);
+
+        bool IsConjuredFood(WoWItem item) => item?.Info?.Name?.StartsWith("Conjured ") == true && !item.Info.Name.Contains("Water");
+
+        bool IsConjuredDrink(WoWItem item) => item?.Info?.Name?.StartsWith("Conjured ") == true && item.Info.Name.Contains("Water");
     }
 }
