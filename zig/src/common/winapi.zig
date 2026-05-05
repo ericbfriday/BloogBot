@@ -93,6 +93,9 @@ pub const OPEN_EXISTING: DWORD = 3;
 pub const GENERIC_READ: DWORD = 0x8000_0000;
 pub const GENERIC_WRITE: DWORD = 0x4000_0000;
 
+pub const FILE_SHARE_READ: DWORD = 0x0000_0001;
+pub const FILE_SHARE_WRITE: DWORD = 0x0000_0002;
+
 pub const INVALID_HANDLE_VALUE: HANDLE = @ptrFromInt(@as(usize, @bitCast(@as(isize, -1))));
 
 // ---------------------------------------------------------------------------
@@ -321,6 +324,16 @@ pub extern "kernel32" fn CreateFileW(
     hTemplateFile: HANDLE,
 ) callconv(.winapi) HANDLE;
 
+pub extern "kernel32" fn CreateFileA(
+    lpFileName: LPCSTR,
+    dwDesiredAccess: DWORD,
+    dwShareMode: DWORD,
+    lpSecurityAttributes: ?*SECURITY_ATTRIBUTES,
+    dwCreationDisposition: DWORD,
+    dwFlagsAndAttributes: DWORD,
+    hTemplateFile: HANDLE,
+) callconv(.winapi) HANDLE;
+
 // ---------------------------------------------------------------------------
 // kernel32 debug output
 // ---------------------------------------------------------------------------
@@ -377,3 +390,107 @@ pub extern "user32" fn SendMessageW(
     wParam: usize,
     lParam: isize,
 ) callconv(.winapi) isize;
+
+// ---------------------------------------------------------------------------
+// Winsock2 imports (ws2_32) — used by HTTP + WebSocket server
+// ---------------------------------------------------------------------------
+
+pub const SOCKET = usize;
+pub const INVALID_SOCKET: SOCKET = @bitCast(@as(isize, -1));
+pub const SOCKET_ERROR: c_int = -1;
+
+pub const SOCK_STREAM: c_int = 1;
+pub const AF_INET: c_int = 2;
+pub const IPPROTO_TCP: c_int = 6;
+
+pub const SOL_SOCKET: c_int = 0xFFFF;
+pub const SO_REUSEADDR: c_int = 0x0004;
+
+pub const INADDR_ANY: u32 = 0;
+
+pub const sockaddr_in = extern struct {
+    sin_family: c_short,
+    sin_port: u16,
+    sin_addr: u32,
+    sin_zero: [8]u8,
+};
+
+pub const WSADATA = extern struct {
+    wVersion: WORD,
+    wHighVersion: WORD,
+    szDescription: [257]u8,
+    szSystemStatus: [129]u8,
+    iMaxSockets: u16,
+    iMaxUdpDg: u16,
+    lpVendorInfo: LPVOID,
+};
+
+pub extern "ws2_32" fn WSAStartup(
+    wVersionRequired: WORD,
+    lpWSAData: *WSADATA,
+) callconv(.winapi) c_int;
+
+pub extern "ws2_32" fn WSACleanup() callconv(.winapi) c_int;
+
+pub extern "ws2_32" fn WSAGetLastError() callconv(.winapi) c_int;
+
+pub extern "ws2_32" fn socket(
+    af: c_int,
+    type: c_int,
+    protocol: c_int,
+) callconv(.winapi) SOCKET;
+
+pub extern "ws2_32" fn bind(
+    s: SOCKET,
+    addr: *const sockaddr_in,
+    namelen: c_int,
+) callconv(.winapi) c_int;
+
+pub extern "ws2_32" fn listen(
+    s: SOCKET,
+    backlog: c_int,
+) callconv(.winapi) c_int;
+
+pub extern "ws2_32" fn accept(
+    s: SOCKET,
+    addr: ?*sockaddr_in,
+    addrlen: ?*c_int,
+) callconv(.winapi) SOCKET;
+
+pub extern "ws2_32" fn closesocket(
+    s: SOCKET,
+) callconv(.winapi) c_int;
+
+pub extern "ws2_32" fn recv(
+    s: SOCKET,
+    buf: [*]u8,
+    len: c_int,
+    flags: c_int,
+) callconv(.winapi) c_int;
+
+pub extern "ws2_32" fn send(
+    s: SOCKET,
+    buf: [*]const u8,
+    len: c_int,
+    flags: c_int,
+) callconv(.winapi) c_int;
+
+pub extern "ws2_32" fn setsockopt(
+    s: SOCKET,
+    level: c_int,
+    optname: c_int,
+    optval: ?*const anyopaque,
+    optlen: c_int,
+) callconv(.winapi) c_int;
+
+pub extern "ws2_32" fn htons(
+    hostshort: u16,
+) callconv(.winapi) u16;
+
+pub extern "ws2_32" fn select(
+    nfds: c_int,
+    readfds: ?*anyopaque,
+    writefds: ?*anyopaque,
+    exceptfds: ?*anyopaque,
+    timeout: ?*anyopaque,
+) callconv(.winapi) c_int;

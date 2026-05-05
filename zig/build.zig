@@ -115,6 +115,7 @@ pub fn build(b: *std.Build) void {
         .root_module = host_mod,
     });
     host.subsystem = .Console;
+    host_mod.linkSystemLibrary("ws2_32", .{});
 
     const host_step = b.step("host", "Build bloog-host exe");
     const install_host = b.addInstallArtifact(host, .{});
