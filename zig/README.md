@@ -9,23 +9,32 @@ It is built independently of the existing C# `BloogBot.sln`; nothing in the
 ```
 zig/
 ├── build.zig              # zig build entry point
-├── build.zig.zon          # package manifest (Zig 0.14+)
+├── build.zig.zon          # package manifest (Zig 0.16+)
 ├── README.md              # this file
 ├── NOTES.md               # lessons-learned log; read while iterating
 ├── src/
 │   ├── common/
-│   │   └── winapi.zig     # Win32 declarations shared across artifacts
-│   └── launcher/
-│       └── main.zig       # bloog-launcher (replaces Bootstrapper/)
+│   │   ├── winapi.zig     # Win32 declarations shared across artifacts
+│   │   ├── log.zig        # Structured logging (stderr + OutputDebugString)
+│   │   └── rpc_types.zig  # Shared RPC opcodes and message framing
+│   ├── launcher/
+│   │   └── main.zig       # bloog-launcher (replaces Bootstrapper/)
+│   ├── stub/
+│   │   ├── main.zig       # DllMain + background thread
+│   │   ├── pipe_server.zig # Named pipe RPC server
+│   │   ├── rpc.zig        # RPC type re-exports
+│   │   └── memory.zig     # In-process memory read/write
+│   └── test-target/
+│       └── main.zig       # Minimal test exe for injection testing
 ```
 
-Future siblings of `launcher/` will be `stub/` (in-process DLL injected
-into `wow.exe`) and `host/` (out-of-process bot logic + web UI).
+`host/` (out-of-process bot logic + web UI) will be added in Phase 4+.
 
 ## Toolchain
 
-- **Zig 0.14.0 or newer.** The build script uses the `b.path(...)` LazyPath
-  API and the `.winapi` calling convention, both of which are 0.14+.
+- **Zig 0.16.0 or newer.** The build script uses the `b.path(...)` LazyPath
+  API, the `.winapi` calling convention, and the `std.process.Init` main
+  signature introduced in 0.16.
 - **No external dependencies.** Everything is stdlib + a tiny hand-rolled
   Win32 surface in `src/common/winapi.zig`.
 
@@ -66,11 +75,6 @@ diagnostic plus non-zero exit code on any Win32 failure.
 
 | Artifact         | Status                                                       |
 |------------------|--------------------------------------------------------------|
-| `bloog-launcher` | Code complete; **not yet compile-verified** — see NOTES.md.   |
-| `bloog-stub.dll` | Not started.                                                  |
+| `bloog-launcher` | **Compiles, runs, and injects** on Zig 0.16.0 (`x86-windows-gnu`). Verified against test-target.exe with `--verbose`. |
+| `bloog-stub.dll` | **Compiles and injects**. DllMain + pipe server + memory read/write RPC. Pipe server listening on `\\.\pipe\bloogbot`. |
 | `bloog-host`     | Not started.                                                  |
-
-`zig build` has not been run on the source tree yet, because the dev
-sandbox where this scaffold was written had no internet access to
-`ziglang.org`. First-build verification is the next step on a host that
-has the toolchain installed.
