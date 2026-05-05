@@ -1,0 +1,18 @@
+.{
+    .name = .bloogbot_zig,
+    .version = "0.0.0",
+    // Zig 0.14+ introduced the `.winapi` calling convention and the new
+    // build-system `b.path(...)` LazyPath API used in build.zig. Older
+    // releases will not parse this manifest.
+    .minimum_zig_version = "0.14.0",
+    // Zig generates a fingerprint warning on first build and tells you the
+    // exact value to paste here. Until a real one is generated, leave the
+    // placeholder; `zig build` will print the substitute it expects.
+    .fingerprint = 0xb100_9b07_0000_0001,
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+    .dependencies = .{},
+}
