@@ -35,6 +35,15 @@ const Error = error{
     ResumeFailed,
 };
 
+/// Global verbose flag — set from argv before injectDll runs.
+var verbose: bool = false;
+
+fn log(comptime fmt: []const u8, args: anytype) void {
+    if (verbose) {
+        std.debug.print("[bloog-launcher] " ++ fmt ++ "\n", args);
+    }
+}
+
 fn killAndReturn(handle: win.HANDLE, err: Error) Error {
     _ = win.TerminateProcess(handle, 1);
     return err;
@@ -83,6 +92,12 @@ fn injectDll(
     }
     defer _ = win.CloseHandle(pinfo.hThread);
     defer _ = win.CloseHandle(pinfo.hProcess);
+    log("CreateProcessW ok: pid={d} tid={d} hProcess={*} hThread={*}", .{
+        pinfo.dwProcessId,
+        pinfo.dwThreadId,
+        pinfo.hProcess,
+        pinfo.hThread,
+    });
 
     // 3. Resolve LoadLibraryW.
     //
@@ -109,6 +124,7 @@ fn injectDll(
     // but the cast makes the intent explicit.
     const load_library: win.LPTHREAD_START_ROUTINE =
         @ptrCast(@alignCast(load_library_addr));
+    log("LoadLibraryW at 0x{x}", .{@intFromPtr(load_library_addr)});
 
     // 4. Allocate path memory inside wow.exe and write the DLL path.
     //
@@ -141,6 +157,10 @@ fn injectDll(
         );
         return killAndReturn(pinfo.hProcess, Error.AllocFailed);
     };
+    log("VirtualAllocEx ok: remote_path at 0x{x} ({d} bytes)", .{
+        @intFromPtr(remote_path),
+        path_bytes,
+    });
 
     // Cast the UTF-16 path to the const-anyopaque buffer pointer that
     // WriteProcessMemory wants. We do this in two steps for clarity: first
@@ -186,6 +206,7 @@ fn injectDll(
         );
         return killAndReturn(pinfo.hProcess, Error.CreateThreadFailed);
     };
+    log("CreateRemoteThread ok: hThread={*}", .{remote_thread});
     defer _ = win.CloseHandle(remote_thread);
 
     // 6. Block until LoadLibraryW returns. Then it is safe to free the
@@ -193,6 +214,7 @@ fn injectDll(
     if (win.WaitForSingleObject(remote_thread, win.INFINITE) != win.WAIT_OBJECT_0) {
         return killAndReturn(pinfo.hProcess, Error.ThreadWaitFailed);
     }
+    log("LoadLibraryW returned in remote process", .{});
 
     // 7. Free the path buffer. (The C# Bootstrapper does this *immediately*
     //    after CreateRemoteThread without waiting, which is technically a
@@ -205,30 +227,47 @@ fn injectDll(
     if (prev_count == 0xFFFF_FFFF) {
         return killAndReturn(pinfo.hProcess, Error.ResumeFailed);
     }
+    log("ResumeThread ok: previous suspend count={d}", .{prev_count});
 }
 
-pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+pub fn main(init: std.process.Init) !void {
+    const allocator: std.mem.Allocator = init.arena.allocator();
 
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+    const args = try init.minimal.args.toSlice(allocator);
 
-    if (args.len != 3) {
+    // Parse optional --verbose flag (must appear before positional args).
+    var arg_idx: usize = 1;
+    while (arg_idx < args.len) : (arg_idx += 1) {
+        if (std.mem.eql(u8, args[arg_idx], "--verbose") or
+            std.mem.eql(u8, args[arg_idx], "-v"))
+        {
+            verbose = true;
+        } else {
+            break;
+        }
+    }
+
+    const positional = args[arg_idx..];
+    if (positional.len != 2) {
         std.debug.print(
-            \\usage: bloog-launcher.exe <path-to-wow.exe> <path-to-bloog-stub.dll>
+            \\usage: bloog-launcher.exe [--verbose] <path-to-wow.exe> <path-to-bloog-stub.dll>
+            \\
+            \\options:
+            \\  --verbose, -v   Print detailed diagnostic output
             \\
             \\example:
-            \\  bloog-launcher.exe "C:\WoW\WotLK\Wow.exe" "C:\BloogBot\bloog-stub.dll"
+            \\  bloog-launcher.exe -v "C:\WoW\WotLK\Wow.exe" "C:\BloogBot\bloog-stub.dll"
             \\
         , .{});
         return Error.InvalidArguments;
     }
 
-    try injectDll(allocator, args[1], args[2]);
+    log("wow_path = '{s}'", .{positional[0]});
+    log("dll_path = '{s}'", .{positional[1]});
+
+    try injectDll(allocator, positional[0], positional[1]);
     std.debug.print(
         "[bloog-launcher] injected '{s}' into '{s}'\n",
-        .{ args[2], args[1] },
+        .{ positional[1], positional[0] },
     );
 }
