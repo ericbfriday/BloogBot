@@ -63,6 +63,38 @@ pub const PAGE_EXECUTE_READWRITE: DWORD = 0x40;
 pub const CREATE_SUSPENDED: DWORD = 0x0000_0004;
 pub const CREATE_DEFAULT_ERROR_MODE: DWORD = 0x0400_0000;
 
+// DLL notification constants (used in DllMain dwReason).
+pub const DLL_PROCESS_ATTACH: DWORD = 1;
+pub const DLL_THREAD_ATTACH: DWORD = 2;
+pub const DLL_THREAD_DETACH: DWORD = 3;
+pub const DLL_PROCESS_DETACH: DWORD = 0;
+
+// Named pipe constants.
+pub const PIPE_ACCESS_DUPLEX: DWORD = 0x0000_0003;
+pub const PIPE_TYPE_BYTE: DWORD = 0x0000_0000;
+pub const PIPE_TYPE_MESSAGE: DWORD = 0x0000_0004;
+pub const PIPE_READMODE_BYTE: DWORD = 0x0000_0000;
+pub const PIPE_READMODE_MESSAGE: DWORD = 0x0000_0002;
+pub const PIPE_WAIT: DWORD = 0x0000_0000;
+pub const PIPE_NOWAIT: DWORD = 0x0000_0001;
+pub const PIPE_UNLIMITED_INSTANCES: DWORD = 255;
+
+// Named pipe connect result.
+pub const ERROR_PIPE_CONNECTED: DWORD = 535;
+
+// VirtualProtect constants (additional).
+pub const PAGE_GUARD: DWORD = 0x100;
+pub const PAGE_NOCACHE: DWORD = 0x200;
+
+// File creation disposition.
+pub const OPEN_EXISTING: DWORD = 3;
+
+// Generic read/write access rights.
+pub const GENERIC_READ: DWORD = 0x8000_0000;
+pub const GENERIC_WRITE: DWORD = 0x4000_0000;
+
+pub const INVALID_HANDLE_VALUE: HANDLE = @ptrFromInt(@as(usize, @bitCast(@as(isize, -1))));
+
 // ---------------------------------------------------------------------------
 // Structures
 // ---------------------------------------------------------------------------
@@ -106,6 +138,19 @@ pub const PROCESS_INFORMATION = extern struct {
 // We cast its address to this type when calling CreateRemoteThread.
 pub const LPTHREAD_START_ROUTINE =
     *const fn (lpThreadParameter: LPVOID) callconv(.winapi) DWORD;
+
+// OVERLAPPED structure for async I/O (named pipes, etc.).
+pub const OVERLAPPED = extern struct {
+    Internal: usize,
+    InternalHigh: usize,
+    offset: DWORD,
+    offsetHigh: DWORD,
+    hEvent: HANDLE,
+};
+
+// LPOVERLAPPED_COMPLETION_ROUTINE for ReadFileEx / WriteFileEx.
+pub const LPOVERLAPPED_COMPLETION_ROUTINE =
+    *const fn (dwErrorCode: DWORD, dwNumberOfBytesTransfered: DWORD, lpOverlapped: *OVERLAPPED) callconv(.winapi) void;
 
 // ---------------------------------------------------------------------------
 // kernel32 imports
@@ -185,3 +230,146 @@ pub extern "kernel32" fn TerminateProcess(
 ) callconv(.winapi) BOOL;
 
 pub extern "kernel32" fn GetLastError() callconv(.winapi) DWORD;
+
+pub extern "kernel32" fn GetCurrentProcessId() callconv(.winapi) DWORD;
+
+// ---------------------------------------------------------------------------
+// Additional kernel32 imports (stub, pipe server, memory ops)
+// ---------------------------------------------------------------------------
+
+pub extern "kernel32" fn CreateThread(
+    lpThreadAttributes: ?*SECURITY_ATTRIBUTES,
+    dwStackSize: SIZE_T,
+    lpStartAddress: LPTHREAD_START_ROUTINE,
+    lpParameter: LPVOID,
+    dwCreationFlags: DWORD,
+    lpThreadId: ?*DWORD,
+) callconv(.winapi) HANDLE;
+
+pub extern "kernel32" fn DisableThreadLibraryCalls(
+    hModule: HMODULE,
+) callconv(.winapi) BOOL;
+
+pub extern "kernel32" fn GetModuleFileNameW(
+    hModule: HMODULE,
+    lpFilename: LPWSTR,
+    nSize: DWORD,
+) callconv(.winapi) DWORD;
+
+pub extern "kernel32" fn VirtualProtect(
+    lpAddress: LPVOID,
+    dwSize: SIZE_T,
+    flNewProtect: DWORD,
+    lpflOldProtect: *DWORD,
+) callconv(.winapi) BOOL;
+
+pub extern "kernel32" fn Sleep(
+    dwMilliseconds: DWORD,
+) callconv(.winapi) void;
+
+pub extern "kernel32" fn CreateNamedPipeW(
+    lpName: LPCWSTR,
+    dwOpenMode: DWORD,
+    dwPipeMode: DWORD,
+    nMaxInstances: DWORD,
+    nOutBufferSize: DWORD,
+    nInBufferSize: DWORD,
+    nDefaultTimeOut: DWORD,
+    lpSecurityAttributes: ?*SECURITY_ATTRIBUTES,
+) callconv(.winapi) HANDLE;
+
+pub extern "kernel32" fn ConnectNamedPipe(
+    hNamedPipe: HANDLE,
+    lpOverlapped: ?*OVERLAPPED,
+) callconv(.winapi) BOOL;
+
+pub extern "kernel32" fn DisconnectNamedPipe(
+    hNamedPipe: HANDLE,
+) callconv(.winapi) BOOL;
+
+pub extern "kernel32" fn ReadFile(
+    hFile: HANDLE,
+    lpBuffer: LPVOID,
+    nNumberOfBytesToRead: DWORD,
+    lpNumberOfBytesRead: ?*DWORD,
+    lpOverlapped: ?*OVERLAPPED,
+) callconv(.winapi) BOOL;
+
+pub extern "kernel32" fn WriteFile(
+    hFile: HANDLE,
+    lpBuffer: LPCVOID,
+    nNumberOfBytesToWrite: DWORD,
+    lpNumberOfBytesWritten: ?*DWORD,
+    lpOverlapped: ?*OVERLAPPED,
+) callconv(.winapi) BOOL;
+
+pub extern "kernel32" fn FlushFileBuffers(
+    hFile: HANDLE,
+) callconv(.winapi) BOOL;
+
+pub extern "kernel32" fn CreateFileW(
+    lpFileName: LPCWSTR,
+    dwDesiredAccess: DWORD,
+    dwShareMode: DWORD,
+    lpSecurityAttributes: ?*SECURITY_ATTRIBUTES,
+    dwCreationDisposition: DWORD,
+    dwFlagsAndAttributes: DWORD,
+    hTemplateFile: HANDLE,
+) callconv(.winapi) HANDLE;
+
+// ---------------------------------------------------------------------------
+// kernel32 debug output
+// ---------------------------------------------------------------------------
+
+pub extern "kernel32" fn OutputDebugStringA(
+    lpOutputString: LPCSTR,
+) callconv(.winapi) void;
+
+// ---------------------------------------------------------------------------
+// user32 imports (thread sync / WndProc hook — used later in Phase 3)
+// ---------------------------------------------------------------------------
+
+pub extern "user32" fn EnumWindows(
+    lpEnumFunc: ?*const fn (hWnd: HANDLE, lParam: LPVOID) callconv(.winapi) BOOL,
+    lParam: LPVOID,
+) callconv(.winapi) BOOL;
+
+pub extern "user32" fn GetWindowThreadProcessId(
+    hWnd: HANDLE,
+    lpdwProcessId: ?*DWORD,
+) callconv(.winapi) DWORD;
+
+pub extern "user32" fn IsWindowVisible(
+    hWnd: HANDLE,
+) callconv(.winapi) BOOL;
+
+pub extern "user32" fn GetWindowTextLengthW(
+    hWnd: HANDLE,
+) callconv(.winapi) c_int;
+
+pub extern "user32" fn GetWindowTextW(
+    hWnd: HANDLE,
+    lpString: LPWSTR,
+    nMaxCount: c_int,
+) callconv(.winapi) c_int;
+
+pub extern "user32" fn SetWindowLongW(
+    hWnd: HANDLE,
+    nIndex: c_int,
+    dwNewLong: isize,
+) callconv(.winapi) isize;
+
+pub extern "user32" fn CallWindowProcW(
+    lpPrevWndFunc: ?*const anyopaque,
+    hWnd: HANDLE,
+    Msg: DWORD,
+    wParam: usize,
+    lParam: isize,
+) callconv(.winapi) isize;
+
+pub extern "user32" fn SendMessageW(
+    hWnd: HANDLE,
+    Msg: DWORD,
+    wParam: usize,
+    lParam: isize,
+) callconv(.winapi) isize;
