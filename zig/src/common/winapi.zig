@@ -173,6 +173,10 @@ pub extern "kernel32" fn GetModuleHandleW(
     lpModuleName: ?LPCWSTR,
 ) callconv(.winapi) HMODULE;
 
+pub extern "kernel32" fn LoadLibraryW(
+    lpFileName: LPCWSTR,
+) callconv(.winapi) HMODULE;
+
 pub extern "kernel32" fn GetProcAddress(
     hModule: HMODULE,
     lpProcName: LPCSTR,
