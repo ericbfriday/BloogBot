@@ -38,6 +38,8 @@ namespace BeastMasterHunterBot
 
         public void Update()
         {
+            RefreshConsumables();
+
             if (InCombat)
             {
                 Wait.RemoveAll();
@@ -71,20 +73,20 @@ namespace BeastMasterHunterBot
                 botStates.Pop();
                 botStates.Push(new BuffSelfState(botStates, container));
 
+                RefreshConsumables();
                 var foodCount = foodItem == null ? 0 : Inventory.GetItemCount(foodItem.ItemId);
                 var drinkCount = drinkItem == null ? 0 : Inventory.GetItemCount(drinkItem.ItemId);
+                var foodToBuy = 12 - (foodCount / stackCount);
+                var drinkToBuy = 28 - (drinkCount / stackCount);
+                var itemsToBuy = new Dictionary<string, int>();
 
-                if (foodCount == 0 || drinkCount == 0)
+                if (ShouldAddErrandItem(container.BotSettings.Food, foodToBuy))
+                    itemsToBuy.Add(container.BotSettings.Food, foodToBuy);
+                if (ShouldAddErrandItem(container.BotSettings.Drink, drinkToBuy))
+                    itemsToBuy.Add(container.BotSettings.Drink, drinkToBuy);
+
+                if (itemsToBuy.Any() && !container.RunningErrands)
                 {
-                    var foodToBuy = 12 - (foodCount / stackCount);
-                    var drinkToBuy = 28 - (drinkCount / stackCount);
-
-                    var itemsToBuy = new Dictionary<string, int>();
-                    if (foodToBuy > 0)
-                        itemsToBuy.Add(container.BotSettings.Food, foodToBuy);
-                    if (drinkToBuy > 0)
-                        itemsToBuy.Add(container.BotSettings.Drink, drinkToBuy);
-
                     var currentHotspot = container.GetCurrentHotspot();
                     if (currentHotspot.TravelPath != null)
                     {
@@ -101,6 +103,21 @@ namespace BeastMasterHunterBot
 
                 return;
             }
+        }
+
+        void RefreshConsumables()
+        {
+            foodItem = FindConfiguredItem(container.BotSettings.Food);
+            drinkItem = FindConfiguredItem(container.BotSettings.Drink);
+        }
+
+        static WoWItem FindConfiguredItem(string itemName)
+        {
+            if (string.IsNullOrWhiteSpace(itemName))
+                return null;
+
+            return Inventory.GetAllItems()
+                .FirstOrDefault(i => i.Info.Name == itemName);
         }
 
         void FeedPet()
@@ -131,5 +148,9 @@ namespace BeastMasterHunterBot
                 return pet == null || pet.HealthPercent == 0 || pet.HealthPercent >= 90;
             }
         }
+
+        internal static bool ShouldAddErrandItem(string itemName, int amountToBuy) =>
+            amountToBuy > 0 &&
+            !string.IsNullOrWhiteSpace(itemName);
     }
 }
