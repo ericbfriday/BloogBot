@@ -72,7 +72,7 @@ namespace ShadowPriestBot
                 return;
             }
 
-            if (player.HealthPercent < 30 && target.HealthPercent > 50 && player.Mana >= player.GetManaCost(LesserHeal))
+            if (player.HealthPercent < 30 && target.HealthPercent > 50 && player.KnowsSpell(LesserHeal) && player.Mana >= player.GetManaCost(LesserHeal))
             {
                 botStates.Push(new HealSelfState(botStates, container));
                 return;
@@ -107,8 +107,9 @@ namespace ShadowPriestBot
             // ensure we're facing the target
             if (!player.IsFacing(target.Position)) player.Face(target.Position);
 
-            // make sure we get into mind flay range for casters
-            if ((target.IsCasting || target.IsChanneling) && player.Position.DistanceTo(target.Position) > 19)
+            var distanceToTarget = player.Position.DistanceTo(target.Position);
+
+            if (ShadowPriestPowerlevelCombatRange.ShouldMoveCloser(distanceToTarget, target.IsCasting, target.IsChanneling))
                 player.MoveToward(target.Position);
             else if (player.IsMoving)
                 player.StopAllMovement();
@@ -156,17 +157,48 @@ namespace ShadowPriestBot
 
                 if (powerlevelTarget.HealthPercent < 50)
                 {
-                    player.SetTarget(powerlevelTarget.Guid);
-                    TryCastSpell(LesserHeal, 0, 40, player.Mana > player.GetManaCost(LesserHeal));
+                    var knowsLesserHeal = player.KnowsSpell(LesserHeal);
+                    var isLesserHealReady = knowsLesserHeal && player.IsSpellReady(LesserHeal);
+                    var lesserHealManaCost = knowsLesserHeal ? player.GetManaCost(LesserHeal) : int.MaxValue;
+                    var distanceToPowerlevelTarget = player.Position.DistanceTo(powerlevelTarget.Position);
+
+                    if (ShadowPriestPowerlevelCombatRotation.ShouldHealPowerlevelTarget(
+                        powerlevelTarget.HealthPercent,
+                        knowsLesserHeal,
+                        isLesserHealReady,
+                        player.Mana,
+                        lesserHealManaCost,
+                        distanceToPowerlevelTarget,
+                        player.IsStunned,
+                        player.IsCasting,
+                        player.IsChanneling))
+                    {
+                        player.SetTarget(powerlevelTarget.Guid);
+                        TryCastSpell(LesserHeal, 0, 40, rangeTarget: powerlevelTarget);
+                    }
                 }
             }
         }
 
-        void TryCastSpell(string name, int minRange, int maxRange, bool condition = true, Action callback = null, bool castOnSelf = false)
+        void TryCastSpell(string name, int minRange, int maxRange, bool condition = true, Action callback = null, bool castOnSelf = false, WoWUnit rangeTarget = null)
         {
-            var distanceToTarget = player.Position.DistanceTo(target.Position);
+            var knowsSpell = player.KnowsSpell(name);
+            var isSpellReady = knowsSpell && player.IsSpellReady(name);
+            var manaCost = knowsSpell ? player.GetManaCost(name) : int.MaxValue;
+            var distanceToTarget = player.Position.DistanceTo((rangeTarget ?? target).Position);
 
-            if (player.IsSpellReady(name) && player.Mana >= player.GetManaCost(name) && distanceToTarget >= minRange && distanceToTarget <= maxRange && condition && !player.IsStunned && !player.IsCasting && !player.IsChanneling)
+            if (ShadowPriestPowerlevelCombatRotation.CanCastSpell(
+                knowsSpell,
+                isSpellReady,
+                player.Mana,
+                manaCost,
+                distanceToTarget,
+                minRange,
+                maxRange,
+                condition,
+                player.IsStunned,
+                player.IsCasting,
+                player.IsChanneling))
             {
                 var castOnSelfString = castOnSelf ? ",1" : "";
                 player.LuaCall($"CastSpellByName(\"{name}\"{castOnSelfString})");

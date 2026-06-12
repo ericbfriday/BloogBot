@@ -2,6 +2,7 @@
 using BloogBot.AI;
 using BloogBot.AI.SharedStates;
 using BloogBot.Game;
+using BloogBot.Game.Enums;
 using BloogBot.Game.Objects;
 using System.Collections.Generic;
 
@@ -14,7 +15,7 @@ namespace ShadowPriestBot
         const string PowerWordShield = "Power Word: Shield";
         const string ShadowForm = "Shadowform";
         const string Smite = "Smite";
-        const string WeakenedSoul = "WeakenedSoul";
+        const string WeakenedSoul = "Weakened Soul";
 
         readonly Stack<IBotState> botStates;
         readonly IDependencyContainer container;
@@ -65,7 +66,12 @@ namespace ShadowPriestBot
                             Wait.Remove("ShadowPriestPullDelay");
 
                             if (!player.IsInCombat)
-                                player.LuaCall($"CastSpellByName('{pullingSpell}')");
+                            {
+                                if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
+                                    player.LuaCall($"CastSpellByName('{pullingSpell}')");
+                                else
+                                    player.CastSpell(pullingSpell, target.Guid);
+                            }
 
                             player.StopAllMovement();
                             botStates.Pop();
@@ -74,7 +80,12 @@ namespace ShadowPriestBot
                     }
 
                     if (player.KnowsSpell(PowerWordShield) && !player.HasDebuff(WeakenedSoul) && !player.HasBuff(PowerWordShield))
-                        player.LuaCall($"CastSpellByName('{PowerWordShield}',1)");
+                    {
+                        if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
+                            player.LuaCall($"CastSpellByName('{PowerWordShield}',1)");
+                        else
+                            player.CastSpell(PowerWordShield, player.Guid);
+                    }
 
                     return;
                 }

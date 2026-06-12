@@ -11,6 +11,10 @@ namespace ShadowPriestBot
     class RestState : IBotState
     {
         const int stackCount = 5;
+        const int lowLevelManaReadyPercent = 50;
+        const int manaReadyPercent = 65;
+        const int fullManaReadyPercent = 90;
+        const int foodHealthPercent = 80;
 
         const string AbolishDisease = "Abolish Disease";
         const string CureDisease = "Cure Disease";
@@ -21,6 +25,7 @@ namespace ShadowPriestBot
         readonly Stack<IBotState> botStates;
         readonly IDependencyContainer container;
         readonly LocalPlayer player;
+        readonly WoWItem foodItem;
         readonly WoWItem drinkItem;
 
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
@@ -28,6 +33,9 @@ namespace ShadowPriestBot
             this.botStates = botStates;
             this.container = container;
             player = ObjectManager.Player;
+
+            foodItem = Inventory.GetAllItems()
+                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Food);
 
             drinkItem = Inventory.GetAllItems()
                 .FirstOrDefault(i => i.Info.Name == container.BotSettings.Drink);
@@ -56,16 +64,20 @@ namespace ShadowPriestBot
                 player.Stand();
                 botStates.Pop();
 
+                var foodCount = foodItem == null ? 0 : Inventory.GetItemCount(foodItem.ItemId);
                 var drinkCount = drinkItem == null ? 0 : Inventory.GetItemCount(drinkItem.ItemId);
+                var itemsToBuy = new Dictionary<string, int>();
 
-                if (!InCombat && drinkCount == 0 && !container.RunningErrands)
+                var foodToBuy = 12 - (foodCount / stackCount);
+                if (foodToBuy > 0 && !string.IsNullOrEmpty(container.BotSettings.Food))
+                    itemsToBuy.Add(container.BotSettings.Food, foodToBuy);
+
+                var drinkToBuy = 28 - (drinkCount / stackCount);
+                if (drinkToBuy > 0 && !string.IsNullOrEmpty(container.BotSettings.Drink))
+                    itemsToBuy.Add(container.BotSettings.Drink, drinkToBuy);
+
+                if (!InCombat && itemsToBuy.Any() && !container.RunningErrands)
                 {
-                    var drinkToBuy = 28 - (drinkCount / stackCount);
-                    var itemsToBuy = new Dictionary<string, int>
-                    {
-                        { container.BotSettings.Drink, drinkToBuy }
-                    };
-
                     var currentHotspot = container.GetCurrentHotspot();
                     if (currentHotspot.TravelPath != null)
                     {
@@ -85,7 +97,28 @@ namespace ShadowPriestBot
                 return;
             }
 
-            if (!player.IsDrinking && Wait.For("HealSelfDelay", 3500, true))
+            var usedConsumable = false;
+
+            if (ShouldUseFood(foodItem != null, player.IsEating, player.HealthPercent) && Wait.For("EatDelay", 2000, true))
+            {
+                foodItem.Use();
+                usedConsumable = true;
+            }
+
+            if (ShouldUseDrink(player.Level, drinkItem != null, player.IsDrinking, player.ManaPercent) && Wait.For("DrinkDelay", 1000, true))
+            {
+                drinkItem.Use();
+                usedConsumable = true;
+            }
+
+            if (usedConsumable)
+                return;
+
+            var healingSpell = player.KnowsSpell(Heal) ? Heal : LesserHeal;
+            var canCastHeal = player.KnowsSpell(healingSpell) &&
+                player.IsSpellReady(healingSpell) &&
+                player.Mana >= player.GetManaCost(healingSpell);
+            if (ShouldHeal(HealthOk, player.IsEating, player.IsDrinking, canCastHeal) && Wait.For("HealSelfDelay", 3500, true))
             {
                 player.Stand();
 
@@ -106,15 +139,35 @@ namespace ShadowPriestBot
                 if (player.HealthPercent < 70)
                     player.LuaCall($"CastSpellByName('{LesserHeal}',1)");
             }
-
-            if (player.Level >= 5 && drinkItem != null && !player.IsDrinking && player.ManaPercent < 60)
-                drinkItem.Use();
         }
 
         bool HealthOk => player.HealthPercent > 90;
 
-        bool ManaOk => (player.Level < 5 && player.ManaPercent > 50) || player.ManaPercent >= 90 || (player.ManaPercent >= 65 && !player.IsDrinking);
+        bool ManaOk => IsManaOk(player.Level, player.ManaPercent, player.IsDrinking, drinkItem != null);
 
         bool InCombat => ObjectManager.Player.IsInCombat || ObjectManager.Units.Any(u => u.TargetGuid == ObjectManager.Player.Guid);
+
+        internal static bool IsManaOk(int level, int manaPercent, bool isDrinking, bool hasDrink) =>
+            !hasDrink ||
+            (level < 5 && manaPercent > lowLevelManaReadyPercent) ||
+            manaPercent >= fullManaReadyPercent ||
+            (manaPercent >= manaReadyPercent && !isDrinking);
+
+        internal static bool ShouldUseDrink(int level, bool hasDrink, bool isDrinking, int manaPercent) =>
+            level >= 5 &&
+            hasDrink &&
+            !isDrinking &&
+            manaPercent < manaReadyPercent;
+
+        internal static bool ShouldUseFood(bool hasFood, bool isEating, int healthPercent) =>
+            hasFood &&
+            !isEating &&
+            healthPercent < foodHealthPercent;
+
+        internal static bool ShouldHeal(bool healthOk, bool isEating, bool isDrinking, bool canCastHeal) =>
+            !healthOk &&
+            !isEating &&
+            !isDrinking &&
+            canCastHeal;
     }
 }
