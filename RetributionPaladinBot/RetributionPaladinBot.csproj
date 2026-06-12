@@ -47,6 +47,8 @@
     <Compile Include="MoveToTargetState.cs" />
     <Compile Include="PowerlevelCombatState.cs" />
     <Compile Include="RestState.cs" />
+    <Compile Include="RetributionPaladinCombatRotation.cs" />
+    <Compile Include="RetributionPaladinBuffSelfState.cs" />
     <Compile Include="RetributionPaladinBot.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

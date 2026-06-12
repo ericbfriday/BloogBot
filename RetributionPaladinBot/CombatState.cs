@@ -1,9 +1,11 @@
-﻿using BloogBot.AI;
+using BloogBot;
+using BloogBot.AI;
 using BloogBot.AI.SharedStates;
 using BloogBot.Game;
 using BloogBot.Game.Enums;
 using BloogBot.Game.Objects;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace RetributionPaladinBot
 {
@@ -15,6 +17,8 @@ namespace RetributionPaladinBot
         const string HolyLight = "Holy Light";
         const string HolyShield = "Holy Shield";
         const string Judgement = "Judgement";
+        const string JudgementOfLight = "Judgement of Light";
+        const string JudgementOfWisdom = "Judgement of Wisdom";
         const string JudgementOfTheCrusader = "Judgement of the Crusader";
         const string Purify = "Purify";
         const string RetributionAura = "Retribution Aura";
@@ -53,25 +57,51 @@ namespace RetributionPaladinBot
 
             TryCastSpell(Purify, player.IsPoisoned || player.IsDiseased, castOnSelf: true);
 
-            TryCastSpell(DevotionAura, !player.HasBuff(DevotionAura) && !player.KnowsSpell(RetributionAura) && !player.KnowsSpell(SanctityAura));
-
-            TryCastSpell(RetributionAura, !player.HasBuff(RetributionAura) && !player.KnowsSpell(SanctityAura));
-
-            TryCastSpell(SanctityAura, !player.HasBuff(SanctityAura));
+            var aura = RetributionPaladinCombatRotation.SelectAura(
+                player.KnowsSpell(DevotionAura),
+                player.HasBuff(DevotionAura),
+                player.KnowsSpell(RetributionAura),
+                player.HasBuff(RetributionAura),
+                player.KnowsSpell(SanctityAura),
+                player.HasBuff(SanctityAura));
+            if (aura != null)
+                TryCastSpell(aura);
 
             TryCastSpell(Exorcism, target.CreatureType == CreatureType.Undead || target.CreatureType == CreatureType.Demon);
 
-            TryCastSpell(HammerOfJustice, (target.CreatureType != CreatureType.Humanoid || (target.CreatureType == CreatureType.Humanoid && target.HealthPercent < 20)));
+            TryCastSpell(HammerOfJustice, target.CreatureType != CreatureType.Humanoid || (target.CreatureType == CreatureType.Humanoid && target.HealthPercent < 20));
 
             TryCastSpell(SealOfTheCrusader, !player.HasBuff(SealOfTheCrusader) && !target.HasDebuff(JudgementOfTheCrusader));
 
-            TryCastSpell(SealOfRighteousness, !player.HasBuff(SealOfRighteousness) && target.HasDebuff(JudgementOfTheCrusader) && !player.KnowsSpell(SealOfCommand));
+            TryCastSpell(SealOfRighteousness, RetributionPaladinCombatRotation.ShouldUseSealOfRighteousness(
+                player.HasBuff(SealOfRighteousness),
+                target.HasDebuff(JudgementOfTheCrusader),
+                player.KnowsSpell(SealOfCommand),
+                player.KnowsSpell(JudgementOfTheCrusader)));
 
             TryCastSpell(SealOfCommand, !player.HasBuff(SealOfCommand) && target.HasDebuff(JudgementOfTheCrusader));
 
             TryCastSpell(HolyShield, !player.HasBuff(HolyShield) && target.HealthPercent > 50);
 
-            TryCastSpell(Judgement, player.HasBuff(SealOfTheCrusader) || ((player.HasBuff(SealOfRighteousness) || player.HasBuff(SealOfCommand)) && (player.ManaPercent >= 95 || target.HealthPercent <= 3)));
+            if (ClientHelper.ClientVersion == ClientVersion.WotLK)
+            {
+                var judgement = RetributionPaladinCombatRotation.SelectWotlkJudgement(
+                    player.KnowsSpell(JudgementOfWisdom),
+                    target.HasDebuff(JudgementOfWisdom),
+                    target.HasDebuff(JudgementOfLight),
+                    player.Buffs.Any(b => b.Name.StartsWith("Seal of")));
+                if (judgement != null)
+                    TryCastSpell(judgement, 0, 10);
+            }
+            else
+            {
+                TryCastSpell(Judgement, RetributionPaladinCombatRotation.ShouldUseLegacyJudgement(
+                    player.HasBuff(SealOfTheCrusader),
+                    player.HasBuff(SealOfRighteousness),
+                    player.HasBuff(SealOfCommand),
+                    player.ManaPercent,
+                    target.HealthPercent));
+            }
         }
     }
 }
