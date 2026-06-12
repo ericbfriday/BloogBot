@@ -15,6 +15,10 @@ namespace FrostMageBot
         const string LosErrorMessage = "Target not in line of sight";
         const string WandLuaScript = "if IsAutoRepeatAction(11) == nil then CastSpellByName('Shoot') end";
 
+        const int LosStrafe1Ms = 2000;
+        const int LosTimeoutMs = 4000;
+        const int LosAbandonMs = 15000;
+
         readonly string[] FireWardTargets = new[] { "Fire", "Flame", "Infernal", "Searing", "Hellcaller" };
         readonly string[] FrostWardTargets = new[] { "Ice", "Frost" };
 
@@ -39,6 +43,7 @@ namespace FrostMageBot
 
         bool noLos;
         int noLosStartTime;
+        int losFirstFailTime;
 
         bool backpedaling;
         int backpedalStartTime;
@@ -90,17 +95,41 @@ namespace FrostMageBot
             if (backpedaling)
                 return;
 
-            if (Environment.TickCount - noLosStartTime > 1000)
-            {
-                player.StopAllMovement();
-                noLos = false;
-            }
-
             if (noLos)
             {
-                var nextWaypoint = Navigation.GetNextWaypoint(ObjectManager.MapId, player.Position, target.Position, false);
-                player.MoveToward(nextWaypoint);
-                return;
+                if (losFirstFailTime != 0 && Environment.TickCount - losFirstFailTime > LosAbandonMs)
+                {
+                    player.StopAllMovement();
+                    botStates.Pop();
+                    return;
+                }
+
+                var losRecovered = player.InLosWith(target.Position);
+                if (losRecovered || Environment.TickCount - noLosStartTime > LosTimeoutMs)
+                {
+                    player.StopMovement(ControlBits.StrafeLeft);
+                    player.StopMovement(ControlBits.StrafeRight);
+                    noLos = false;
+                    if (losRecovered)
+                        losFirstFailTime = 0;
+                }
+                else
+                {
+                    player.Face(target.Position);
+                    player.StopMovement(ControlBits.Front);
+                    var elapsed = Environment.TickCount - noLosStartTime;
+                    if (elapsed < LosStrafe1Ms)
+                    {
+                        player.StopMovement(ControlBits.StrafeRight);
+                        player.StartMovement(ControlBits.StrafeLeft);
+                    }
+                    else
+                    {
+                        player.StopMovement(ControlBits.StrafeLeft);
+                        player.StartMovement(ControlBits.StrafeRight);
+                    }
+                    return;
+                }
             }
 
             if (target.TappedByOther)
@@ -145,6 +174,19 @@ namespace FrostMageBot
             else
                 player.StopAllMovement();
 
+            // Proactive LOS check — don't attempt spells without LOS, trigger strafe if blocked.
+            if (!player.InLosWith(target.Position))
+            {
+                if (!noLos)
+                {
+                    noLos = true;
+                    noLosStartTime = Environment.TickCount;
+                    if (losFirstFailTime == 0)
+                        losFirstFailTime = Environment.TickCount;
+                }
+                return;
+            }
+
             // ----- COMBAT ROTATION -----
             TryCastSpell(Evocation, 0, Int32.MaxValue, (player.HealthPercent > 50 || player.HasBuff(IceBarrier)) && player.ManaPercent < 8 && target.HealthPercent > 15);
 
@@ -185,10 +227,12 @@ namespace FrostMageBot
 
         void OnErrorMessageCallback(object sender, OnUiMessageArgs e)
         {
-            if (e.Message == LosErrorMessage)
+            if (e.Message == LosErrorMessage && !noLos)
             {
                 noLos = true;
                 noLosStartTime = Environment.TickCount;
+                if (losFirstFailTime == 0)
+                    losFirstFailTime = Environment.TickCount;
             }
         }
 

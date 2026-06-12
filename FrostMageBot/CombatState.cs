@@ -155,6 +155,12 @@ namespace FrostMageBot
                 return;
             }
 
+            // Don't attempt spells without line of sight. Strafing is handled in CombatStateBase.
+            // This also applies during unstucking — movement still happens above, but spell casts
+            // must not fire without LOS or they will spam indefinitely.
+            if (TriggerLosRecovery())
+                return;
+
             TryCastSpell(Evocation, 0, int.MaxValue, (player.HealthPercent > 50 || PlayerHasIceBarrier) && player.ManaPercent < 8 && target.HealthPercent > 15);
 
             var wand = Inventory.GetEquippedItem(EquipSlot.Ranged);

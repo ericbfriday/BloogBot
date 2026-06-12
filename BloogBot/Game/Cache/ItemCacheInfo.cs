@@ -177,7 +177,20 @@ namespace BloogBot.Game.Cache
 
         public ItemClass ItemClass => itemCacheEntry.ItemClass;
 
-        public ItemSubclass ItemSubclass => ItemSubclasses.ElementAt((int)ItemClass)[itemCacheEntry.ItemSubclassID];
+        public ItemSubclass ItemSubclass
+        {
+            get
+            {
+                var classIndex = (int)ItemClass;
+                if (classIndex < 0 || classIndex >= ItemSubclasses.Count)
+                    return ItemSubclass.Other;
+                var subclasses = ItemSubclasses[classIndex];
+                var subclassId = itemCacheEntry.ItemSubclassID;
+                if (subclassId < 0 || subclassId >= subclasses.Length)
+                    return ItemSubclass.Other;
+                return subclasses[subclassId];
+            }
+        }
 
         public ItemQuality Quality => itemCacheEntry.ItemQuality;
 

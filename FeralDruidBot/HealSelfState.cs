@@ -54,6 +54,8 @@ namespace FeralDruidBot
 
         void CastSpell(string name, bool castOnSelf = false)
         {
+            if (!player.KnowsSpell(name)) return;
+
             if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
             {
                 var castOnSelfString = castOnSelf ? ",1" : "";

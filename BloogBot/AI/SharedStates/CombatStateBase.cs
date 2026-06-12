@@ -25,8 +25,15 @@ namespace BloogBot.AI.SharedStates
         int backpedalStartTime;
         bool noLos;
         int noLosStartTime;
+        int losFirstFailTime;
+        const int LosStrafe1Ms = 2000;
+        const int LosTimeoutMs = 4000;
+        const int LosAbandonMs = 15000;
 
         int combatStateStartTime;
+
+        public static bool ShouldSuppressMeleeAutoAttack(ItemSubclass? rangedItemSubclass) =>
+            rangedItemSubclass == ItemSubclass.Wand;
 
         public CombatStateBase(
             Stack<IBotState> botStates,
@@ -61,18 +68,46 @@ namespace BloogBot.AI.SharedStates
             if (backpedaling)
                 return true;
 
-            // the server-side los check is broken on Kronos, so we have to rely on an error message on the client.
-            // when we see it, move toward the unit a bit to correct the position.
-            if (noLos && Environment.TickCount - noLosStartTime > 1000)
-            {
-                player.StopMovement(ControlBits.Front);
-                noLos = false;
-            }
+            // When LOS is blocked, strafe laterally (left then right) instead of walking into the
+            // obstacle. Works even when navigation has no mmap/tile data for the current map.
             if (noLos)
             {
-                var nextWaypoint = Navigation.GetNextWaypoint(ObjectManager.MapId, player.Position, target.Position, false);
-                player.MoveToward(nextWaypoint);
-                return true;
+                // Abandon target if LOS has been broken long enough that the mob is unreachable.
+                if (losFirstFailTime != 0 && Environment.TickCount - losFirstFailTime > LosAbandonMs)
+                {
+                    container.Probe.BlacklistedMobIds.Add(target.Guid);
+                    if (container.BotSettings.PermanentlyBlacklistUnreachableTargets)
+                        Repository.AddBlacklistedMob(target.Guid);
+                    CleanUp();
+                    return true;
+                }
+
+                var losRecovered = player.InLosWith(target.Position);
+                if (losRecovered || Environment.TickCount - noLosStartTime > LosTimeoutMs)
+                {
+                    player.StopMovement(ControlBits.StrafeLeft);
+                    player.StopMovement(ControlBits.StrafeRight);
+                    noLos = false;
+                    if (losRecovered)
+                        losFirstFailTime = 0;
+                }
+                else
+                {
+                    player.Face(target.Position);
+                    player.StopMovement(ControlBits.Front);
+                    var elapsed = Environment.TickCount - noLosStartTime;
+                    if (elapsed < LosStrafe1Ms)
+                    {
+                        player.StopMovement(ControlBits.StrafeRight);
+                        player.StartMovement(ControlBits.StrafeLeft);
+                    }
+                    else
+                    {
+                        player.StopMovement(ControlBits.StrafeLeft);
+                        player.StartMovement(ControlBits.StrafeRight);
+                    }
+                    return true;
+                }
             }
 
             // If we haven't dealt any damage to the target for 30 seconds, we're probably stuck.
@@ -152,9 +187,9 @@ namespace BloogBot.AI.SharedStates
             else if (player.IsMoving && player.Position.DistanceTo(target.Position) < desiredRange - 1)
                 player.StopAllMovement();
 
-            // ensure auto-attack is turned on ONLY if player does not have a wand
-            var wand = Inventory.GetEquippedItem(EquipSlot.Ranged);
-            if (wand == null)
+            // Only true wand users should suppress melee auto-attack; relics share the ranged slot.
+            var rangedItem = Inventory.GetEquippedItem(EquipSlot.Ranged);
+            if (!ShouldSuppressMeleeAutoAttack(rangedItem?.Info?.ItemSubclass))
             {
                 if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
                 {
@@ -260,6 +295,22 @@ namespace BloogBot.AI.SharedStates
             WoWEventHandler.OnErrorMessage -= OnErrorMessageCallback;
         }
 
+        // Proactive LOS check for ranged subclasses. Call before attempting spells.
+        // Returns true when LOS is blocked and strafing has been triggered — callers should return immediately.
+        protected bool TriggerLosRecovery()
+        {
+            if (player.InLosWith(target.Position))
+                return false;
+            if (!noLos)
+            {
+                noLos = true;
+                noLosStartTime = Environment.TickCount;
+                if (losFirstFailTime == 0)
+                    losFirstFailTime = Environment.TickCount;
+            }
+            return true;
+        }
+
         void OnErrorMessageCallback(object sender, OnUiMessageArgs e)
         {
             if (e.Message == FacingErrorMessage && !backpedaling)
@@ -268,10 +319,12 @@ namespace BloogBot.AI.SharedStates
                 backpedalStartTime = Environment.TickCount;
                 player.StartMovement(ControlBits.Back);
             }
-            else if (e.Message == LosErrorMessage)
+            else if (e.Message == LosErrorMessage && !noLos)
             {
                 noLos = true;
                 noLosStartTime = Environment.TickCount;
+                if (losFirstFailTime == 0)
+                    losFirstFailTime = Environment.TickCount;
             }
         }
     }

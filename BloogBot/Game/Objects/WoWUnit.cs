@@ -164,6 +164,9 @@ namespace BloogBot.Game.Objects
         {
             get
             {
+                if (TryGetLuaAuras(isHarmful: false, out var luaBuffs))
+                    return luaBuffs;
+
                 // TODO: figure out what's going on here. WotLK seems to store buffs at a static offset from the Player Pointer,
                 // but TBC seems to store them as a Descriptor
                 if (ClientHelper.ClientVersion == ClientVersion.WotLK)
@@ -207,6 +210,9 @@ namespace BloogBot.Game.Objects
         {
             get
             {
+                if (TryGetLuaAuras(isHarmful: true, out var luaDebuffs))
+                    return luaDebuffs;
+
                 // TODO: figure out what's going on here. WotLK seems to store buffs at a static offset from the Player Pointer,
                 // but TBC seems to store them as a Descriptor
                 if (ClientHelper.ClientVersion == ClientVersion.WotLK)
@@ -311,6 +317,44 @@ namespace BloogBot.Game.Objects
             {
                 return Debuffs.Any(d => ImmobilizedSpellText.Any(s => d.Description.Contains(s) || d.Tooltip.Contains(s)));
             }
+        }
+
+        bool TryGetLuaAuras(bool isHarmful, out IEnumerable<Spell> spells)
+        {
+            spells = null;
+
+            if (ClientHelper.ClientVersion != ClientVersion.WotLK || ObjectManager.Player == null)
+                return false;
+
+            LuaTarget? luaTarget = null;
+            if (Guid == ObjectManager.Player.Guid)
+                luaTarget = LuaTarget.Player;
+            else if (Guid == ObjectManager.Player.TargetGuid)
+                luaTarget = LuaTarget.Target;
+
+            if (!luaTarget.HasValue)
+                return false;
+
+            var auraNames = GetAuraNames(luaTarget.Value, isHarmful);
+            spells = auraNames.Select(name => new Spell(0, 0, name, string.Empty, string.Empty)).ToList();
+            return true;
+        }
+
+        IEnumerable<string> GetAuraNames(LuaTarget target, bool isHarmful)
+        {
+            var auraNames = new List<string>();
+            var auraFunction = isHarmful ? "UnitDebuff" : "UnitBuff";
+
+            for (var i = 1; i <= 40; i++)
+            {
+                var result = LuaCallWithResults("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10} = " + auraFunction + "('" + target.ToString().ToLower() + "', " + i + ")");
+                if (result.Length == 0 || string.IsNullOrEmpty(result[0]))
+                    break;
+
+                auraNames.Add(result[0]);
+            }
+
+            return auraNames;
         }
     }
 }

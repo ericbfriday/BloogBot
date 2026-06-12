@@ -54,7 +54,7 @@ namespace BloogBot.AI.SharedStates
             }
 
             if (random.NextDouble() < jumpFrequency)
-                player.LuaCall("Jump()");
+                player.Jump();
 
             if (random.NextDouble() < 0.0025)
                 Emote();

@@ -1,5 +1,6 @@
 ﻿using BloogBot.Game;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -27,6 +28,7 @@ namespace BloogBot
 
         static CalculatePathDelegate calculatePath;
         static FreePathArr freePathArr;
+        static readonly HashSet<uint> brokenMapIds = new HashSet<uint>();
 
         static Navigation()
         {
@@ -65,10 +67,14 @@ namespace BloogBot
 
         static public Position GetNextWaypoint(uint mapId, Position start, Position end, bool straightPath)
         {
+            if (brokenMapIds.Contains(mapId))
+                return end;
+
             var path = CalculatePath(mapId, start, end, straightPath);
             if (path.Length <= 1)
             {
                 Logger.Log($"Problem building path for mapId \"{mapId}\". Make sure the \"mmaps\" directory contains the required mmap and tile-files. Returning destination as next waypoint...");
+                brokenMapIds.Add(mapId);
                 return end;
             }
 
