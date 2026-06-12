@@ -221,6 +221,8 @@
     <Compile Include="Detour.cs" />
     <Compile Include="DiscordClientWrapper.cs" />
     <Compile Include="Game\Cache\ItemCacheInfo.cs" />
+    <Compile Include="Game\DeathKnightResources.cs" />
+    <Compile Include="Game\DkAbilityCost.cs" />
     <Compile Include="Game\Enums\AuraFlags.cs" />
     <Compile Include="Game\Enums\Class.cs" />
     <Compile Include="Game\Enums\ClientVersion.cs" />
@@ -239,6 +241,7 @@
     <Compile Include="Game\Enums\MovementFlags.cs" />
     <Compile Include="Game\Enums\ObjectType.cs" />
     <Compile Include="Game\Enums\Race.cs" />
+    <Compile Include="Game\Enums\RuneType.cs" />
     <Compile Include="Game\Enums\UnitFlags.cs" />
     <Compile Include="Game\Enums\UnitReactions.cs" />
     <Compile Include="Game\Frames\DialogFrame.cs" />
@@ -258,6 +261,7 @@
     <Compile Include="Game\Objects\WoWUnit.cs" />
     <Compile Include="Game\Objects\WoWObject.cs" />
     <Compile Include="Game\Position.cs" />
+    <Compile Include="Game\RuneState.cs" />
     <Compile Include="Game\Frames\LootFrame.cs" />
     <Compile Include="Game\Spell.cs" />
     <Compile Include="Game\SpellEffect.cs" />

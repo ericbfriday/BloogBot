@@ -1,4 +1,5 @@
-﻿using BloogBot.Game.Enums;
+﻿using BloogBot.Game;
+using BloogBot.Game.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -410,6 +411,78 @@ namespace BloogBot.Game.Objects
 
         public bool KnowsSpell(string name) => PlayerSpells.ContainsKey(name);
 
+        public int RunicPower
+        {
+            get
+            {
+                var result = LuaCallWithResults("{0} = tostring(UnitPower('player', 6))");
+                return result.Length > 0 ? ParseLuaInt(result[0]) : 0;
+            }
+        }
+
+        public IReadOnlyList<RuneState> GetRunes()
+        {
+            var runes = new List<RuneState>();
+            for (var slot = 1; slot <= DeathKnightResources.RuneSlotCount; slot++)
+            {
+                runes.Add(GetRune(slot));
+            }
+
+            return runes;
+        }
+
+        public RuneState GetRune(int slot)
+        {
+            var result = LuaCallWithResults($@"
+                local start, duration, ready = GetRuneCooldown({slot})
+                local remaining = 0
+                if start and duration and ready ~= true then
+                    remaining = math.max(0, start + duration - GetTime())
+                end
+                {{0}} = tostring(start or 0)
+                {{1}} = tostring(remaining)
+                {{2}} = ready and '1' or '0'
+                {{3}} = tostring(GetRuneType({slot}) or 0)
+                {{4}} = tostring(GetRuneCount({slot}) or 0)");
+
+            return DeathKnightResources.ParseRuneState(
+                slot,
+                GetLuaResult(result, 0),
+                GetLuaResult(result, 1),
+                GetLuaResult(result, 2),
+                GetLuaResult(result, 3),
+                GetLuaResult(result, 4));
+        }
+
+        public bool HasReadyRune(RuneType type) =>
+            GetRunes().Any(r => r.Ready && r.Count > 0 && (r.Type == type || r.Type == RuneType.Death));
+
+        public bool HasReadyRunes(DkAbilityCost cost) =>
+            DeathKnightResources.HasReadyRunes(GetRunes(), cost);
+
+        public bool IsDeathKnightAbilityUsable(string spellName, DkAbilityCost cost = null)
+        {
+            if (ClientHelper.ClientVersion != ClientVersion.WotLK || Class != Class.DeathKnight)
+                return false;
+
+            if (DeathKnightResources.RequiresGroundTarget(spellName))
+                return false;
+
+            if (!KnowsSpell(spellName) || !IsSpellReady(spellName))
+                return false;
+
+            var requiredCost = cost ?? DeathKnightResources.GetKnownCost(spellName);
+            if (!DeathKnightResources.HasEnoughRunicPower(RunicPower, requiredCost))
+                return false;
+
+            if (!HasReadyRunes(requiredCost))
+                return false;
+
+            var escapedName = FormatLua("{0}", spellName);
+            var result = LuaCallWithResults($"local usable = IsUsableSpell('{escapedName}'); {{0}} = usable and '1' or '0'");
+            return result.Length > 0 && result[0] == "1";
+        }
+
         public bool MainhandIsEnchanted => LuaCallWithResults("{0} = GetWeaponEnchantInfo()")[0] == "1";
 
         public bool OffhandIsEnchanted => LuaCallWithResults("{0}, {1}, {2}, {3} = GetWeaponEnchantInfo()")[3] == "1";
@@ -478,7 +551,19 @@ namespace BloogBot.Game.Objects
 
         private static string FormatLua(string str, params object[] names)
         {
+            if (names.Length == 0)
+                return str.Replace("'", "\\'").Replace("\"", "\\\"");
+
             return string.Format(str, names.Select(s => s.ToString().Replace("'", "\\'").Replace("\"", "\\\"")).ToArray());
+        }
+
+        static string GetLuaResult(string[] results, int index) =>
+            results.Length > index ? results[index] : string.Empty;
+
+        static int ParseLuaInt(string value)
+        {
+            int parsed;
+            return int.TryParse(value, out parsed) ? parsed : 0;
         }
     }
 }

@@ -71,6 +71,7 @@ Blood Strike: 1 Blood
 Heart Strike: 1 Blood
 Pestilence: 1 Blood
 Blood Boil: 1 Blood
+Rune Tap: 1 Blood
 Death Strike: 1 Frost + 1 Unholy
 Obliterate: 1 Frost + 1 Unholy
 Scourge Strike: 1 Unholy

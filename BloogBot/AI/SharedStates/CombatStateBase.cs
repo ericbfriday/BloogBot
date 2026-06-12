@@ -234,6 +234,19 @@ namespace BloogBot.AI.SharedStates
             }
         }
 
+        protected void TryUseDeathKnightAbility(string name, DkAbilityCost cost = null, bool condition = true, Action callback = null)
+        {
+            if (!condition || player.IsStunned || player.IsCasting)
+                return;
+
+            var requiredCost = cost ?? DeathKnightResources.GetKnownCost(name);
+            if (!player.IsDeathKnightAbilityUsable(name, requiredCost))
+                return;
+
+            player.CastSpell(name, target.Guid);
+            callback?.Invoke();
+        }
+
         // https://vanilla-wow.fandom.com/wiki/API_CastSpell
         // The id is counted from 1 through all spell types (tabs on the right side of SpellBookFrame).
         public void TryUseAbilityById(string name, int id, int requiredRage = 0, bool condition = true, Action callback = null)
