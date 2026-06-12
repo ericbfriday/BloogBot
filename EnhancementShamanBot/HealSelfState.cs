@@ -9,8 +9,12 @@ namespace EnhancementShamanBot
 {
     class HealSelfState : IBotState
     {
+        const string ChainHeal = EnhancementShamanRotation.ChainHeal;
+        const string GiftOfTheNaaru = "Gift of the Naaru";
         const string WarStomp = "War Stomp";
-        const string HealingWave = "Healing Wave";
+        const string HealingWave = EnhancementShamanRotation.HealingWave;
+        const string LesserHealingWave = EnhancementShamanRotation.LesserHealingWave;
+        const string NatureSwiftness = "Nature's Swiftness";
 
         readonly Stack<IBotState> botStates;
         readonly LocalPlayer player;
@@ -20,7 +24,7 @@ namespace EnhancementShamanBot
             this.botStates = botStates;
             player = ObjectManager.Player;
 
-            if (player.IsSpellReady(WarStomp))
+            if (player.KnowsSpell(WarStomp) && player.IsSpellReady(WarStomp))
                 player.LuaCall($"CastSpellByName('{WarStomp}')");
         }
 
@@ -30,19 +34,53 @@ namespace EnhancementShamanBot
 
             player.StopAllMovement();
 
-            if (player.HealthPercent > 70 || player.Mana < player.GetManaCost(HealingWave))
+            if (player.HealthPercent > 70)
             {
                 botStates.Pop();
                 return;
             }
 
+            if (player.HealthPercent < 45 && CanUseSelfSpell(NatureSwiftness))
+            {
+                CastSelfSpell(NatureSwiftness);
+                return;
+            }
+
+            var healSpell = EnhancementShamanRotation.SelectSelfHeal(
+                player.HealthPercent,
+                maelstromStacks: 0,
+                CanUseSelfSpell(LesserHealingWave),
+                CanUseSelfSpell(HealingWave),
+                CanUseSelfSpell(ChainHeal));
+            if (healSpell != null)
+            {
+                CastSelfSpell(healSpell);
+                return;
+            }
+
+            if (player.HealthPercent < 55 && CanUseSelfSpell(GiftOfTheNaaru))
+            {
+                CastSelfSpell(GiftOfTheNaaru);
+                return;
+            }
+
+            botStates.Pop();
+        }
+
+        bool CanUseSelfSpell(string name) =>
+            player.KnowsSpell(name) &&
+            player.IsSpellReady(name) &&
+            player.Mana >= player.GetManaCost(name);
+
+        void CastSelfSpell(string name)
+        {
             if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
             {
-                player.LuaCall($"CastSpellByName('{HealingWave}',1)");
+                player.LuaCall($"CastSpellByName('{name}',1)");
             }
             else
             {
-                player.CastSpell(HealingWave, player.Guid);
+                player.CastSpell(name, player.Guid);
             }
         }
     }

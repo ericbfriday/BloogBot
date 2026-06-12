@@ -12,12 +12,17 @@ namespace EnhancementShamanBot
     class RestState : IBotState
     {
         const int stackCount = 5;
+        const int lowLevelManaReadyPercent = 50;
+        const int manaReadyPercent = 65;
+        const int fullManaReadyPercent = 90;
+        const int foodHealthPercent = 80;
 
         const string HealingWave = "Healing Wave";
 
         readonly Stack<IBotState> botStates;
         readonly IDependencyContainer container;
         readonly LocalPlayer player;
+        readonly WoWItem foodItem;
         readonly WoWItem drinkItem;
 
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
@@ -25,7 +30,9 @@ namespace EnhancementShamanBot
             this.botStates = botStates;
             this.container = container;
             player = ObjectManager.Player;
-            player.SetTarget(player.Guid);
+
+            foodItem = Inventory.GetAllItems()
+                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Food);
 
             drinkItem = Inventory.GetAllItems()
                 .FirstOrDefault(i => i.Info.Name == container.BotSettings.Drink);
@@ -37,17 +44,26 @@ namespace EnhancementShamanBot
 
             if (InCombat || (HealthOk && ManaOk))
             {
+                Wait.RemoveAll();
                 player.Stand();
                 botStates.Pop();
 
+                var foodCount = foodItem == null ? 0 : Inventory.GetItemCount(foodItem.ItemId);
                 var drinkCount = drinkItem == null ? 0 : Inventory.GetItemCount(drinkItem.ItemId);
-                if (!InCombat && drinkCount == 0 && !container.RunningErrands)
+                if (!InCombat && (foodCount == 0 || drinkCount == 0) && !container.RunningErrands)
                 {
+                    var foodToBuy = 12 - (foodCount / stackCount);
                     var drinkToBuy = 28 - (drinkCount / stackCount);
-                    var itemsToBuy = new Dictionary<string, int>
-                    {
-                        { container.BotSettings.Drink, drinkToBuy }
-                    };
+                    var itemsToBuy = new Dictionary<string, int>();
+
+                    if (foodToBuy > 0 && !string.IsNullOrEmpty(container.BotSettings.Food))
+                        itemsToBuy.Add(container.BotSettings.Food, foodToBuy);
+
+                    if (drinkToBuy > 0 && !string.IsNullOrEmpty(container.BotSettings.Drink))
+                        itemsToBuy.Add(container.BotSettings.Drink, drinkToBuy);
+
+                    if (!itemsToBuy.Any())
+                        return;
 
                     var currentHotspot = container.GetCurrentHotspot();
                     if (currentHotspot.TravelPath != null)
@@ -66,38 +82,81 @@ namespace EnhancementShamanBot
                 return;
             }
 
-            if (!player.IsDrinking)
-            {
-                player.Stand();
-                if (player.HealthPercent < 70 ||
+            var usedConsumable = false;
 
-                    // In WotLK, healing wave rank 3 doesn't have much difference in mana cost
-                    // compared to max rank.
-                    (
-                        !HealthOk &&
-                        ClientHelper.ClientVersion == ClientVersion.WotLK &&
-                        player.Level >= 40
-                    ))
-                {
-                    player.LuaCall($"CastSpellByName('{HealingWave}')");
-                }
-                else if (!HealthOk)
-                {
-                    if (player.Level >= 40)
-                        player.LuaCall($"CastSpellByName('{HealingWave}(Rank 3)')");
-                    else
-                        player.LuaCall($"CastSpellByName('{HealingWave}(Rank 1)')");
-                }
+            if (ShouldUseFood(foodItem != null, player.IsEating, player.HealthPercent) && Wait.For("EatDelay", 2000, true))
+            {
+                foodItem.Use();
+                usedConsumable = true;
             }
 
-            if (player.Level > 10 && drinkItem != null && !player.IsDrinking && player.ManaPercent < 60)
+            if (ShouldUseDrink(player.Level, drinkItem != null, player.IsDrinking, player.ManaPercent) && Wait.For("DrinkDelay", 1000, true))
+            {
                 drinkItem.Use();
+                usedConsumable = true;
+            }
+
+            if (usedConsumable)
+                return;
+
+            var healRank = GetHealingWaveRank();
+            var canCastHeal = player.KnowsSpell(HealingWave) &&
+                player.IsSpellReady(HealingWave, healRank) &&
+                player.Mana >= player.GetManaCost(HealingWave, healRank);
+            if (ShouldHeal(HealthOk, player.IsEating, player.IsDrinking, canCastHeal) && Wait.For("HealSelfDelay", 3500, true))
+            {
+                player.Stand();
+                CastHealingWave(healRank);
+            }
         }
 
         bool HealthOk => player.HealthPercent > 90;
 
-        bool ManaOk => (player.Level <= 10 && player.ManaPercent > 50) || player.ManaPercent >= 90 || (player.ManaPercent >= 65 && !player.IsDrinking);
+        bool ManaOk => IsManaOk(player.Level, player.ManaPercent, player.IsDrinking, drinkItem != null);
 
         bool InCombat => ObjectManager.Player.IsInCombat || ObjectManager.Units.Any(u => u.TargetGuid == ObjectManager.Player.Guid);
+
+        int GetHealingWaveRank()
+        {
+            if (player.HealthPercent < 70 ||
+                (ClientHelper.ClientVersion == ClientVersion.WotLK && player.Level >= 40))
+                return -1;
+
+            return player.Level >= 40 ? 3 : 1;
+        }
+
+        void CastHealingWave(int rank)
+        {
+            string spell;
+            if (rank < 1)
+                spell = HealingWave;
+            else
+                spell = $"{HealingWave}(Rank {rank})";
+
+            player.LuaCall($"CastSpellByName(\"{spell}\", 1)");
+        }
+
+        internal static bool IsManaOk(int level, int manaPercent, bool isDrinking, bool hasDrink) =>
+            !hasDrink ||
+            (level <= 10 && manaPercent > lowLevelManaReadyPercent) ||
+            manaPercent >= fullManaReadyPercent ||
+            (manaPercent >= manaReadyPercent && !isDrinking);
+
+        internal static bool ShouldUseDrink(int level, bool hasDrink, bool isDrinking, int manaPercent) =>
+            level > 10 &&
+            hasDrink &&
+            !isDrinking &&
+            manaPercent < manaReadyPercent;
+
+        internal static bool ShouldUseFood(bool hasFood, bool isEating, int healthPercent) =>
+            hasFood &&
+            !isEating &&
+            healthPercent < foodHealthPercent;
+
+        internal static bool ShouldHeal(bool healthOk, bool isEating, bool isDrinking, bool canCastHeal) =>
+            !healthOk &&
+            !isEating &&
+            !isDrinking &&
+            canCastHeal;
     }
 }

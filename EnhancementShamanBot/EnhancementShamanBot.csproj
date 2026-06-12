@@ -42,6 +42,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CombatState.cs" />
+    <Compile Include="EnhancementShamanRotation.cs" />
+    <Compile Include="ShamanTotemTracker.cs" />
     <Compile Include="EnhancementShamanBot.cs" />
     <Compile Include="HealSelfState.cs" />
     <Compile Include="MoveToTargetState.cs" />
