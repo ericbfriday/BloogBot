@@ -29,9 +29,18 @@ namespace BloogBot.Game
         static readonly CastSpellByIdDelegate CastSpellByIdFunction =
             Marshal.GetDelegateForFunctionPointer<CastSpellByIdDelegate>((IntPtr)MemoryAddresses.CastSpellByIdFunPtr);
 
+        [HandleProcessCorruptedStateExceptions]
         public int CastSpellById(int spellId, ulong targetGuid)
         {
-            return CastSpellByIdFunction(spellId, 0, targetGuid, 0, 0, 0, 0);
+            try
+            {
+                return CastSpellByIdFunction(spellId, 0, targetGuid, 0, 0, 0, 0);
+            }
+            catch (AccessViolationException)
+            {
+                Logger.Log($"[CastSpellById] Access violation casting spell {spellId} on target {targetGuid:X}");
+                return 0;
+            }
         }
 
         public int Dismount(IntPtr unitPtr)

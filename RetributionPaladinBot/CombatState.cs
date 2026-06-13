@@ -46,7 +46,7 @@ namespace RetributionPaladinBot
 
         public new void Update()
         {
-            if (player.HealthPercent < 30 && target.HealthPercent > 50 && player.Mana >= player.GetManaCost(HolyLight))
+            if (player.HealthPercent < 30 && target.HealthPercent > 50 && player.KnowsSpell(HolyLight) && player.Mana >= player.GetManaCost(HolyLight))
             {
                 botStates.Push(new HealSelfState(botStates, container));
                 return;

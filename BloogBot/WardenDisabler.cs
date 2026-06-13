@@ -248,7 +248,7 @@ namespace BloogBot
             Console.WriteLine($"[WARDEN] WardenPtr = {wardenPtr} (0x{wardenPtr.ToString("X")})");
             if (wardenPtr != IntPtr.Zero)
             {
-                if ((int)wardenPtr < 80000)
+                if ((int)wardenPtr < 0x00100000)
                 {
                     // TODO: Warden disabling is not working reliably for WotLK. You can probably remove this warning once you have it more stable.
                     if (ClientHelper.ClientVersion == ClientVersion.WotLK)
@@ -430,8 +430,7 @@ namespace BloogBot
                 // Logging this to the console lags the client like crazy
                 //Console.WriteLine($"[WARDEN MemoryScan] BaseAddr: {addr.ToString("X")}, Size: {size}");
 
-                var hacksWithinRange = HackManager.Hacks
-                    .Where(i => i.Address.ToInt32() <= IntPtr.Add(addr, size).ToInt32() && i.Address.ToInt32() >= addr.ToInt32());
+                var hacksWithinRange = HackManager.Hacks.Where(h => h.IsWithinScanRange(addr, size));
 
                 foreach (var hack in hacksWithinRange)
                     Console.WriteLine($"[WARDEN MemoryScan] Disabling {hack.Name} at {hack.Address.ToString("X")}");

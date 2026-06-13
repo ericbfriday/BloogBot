@@ -55,6 +55,7 @@ namespace BloogBot.AI
                 {
                     botStates.Push(new LoginState(botStates, container, onLoginComplete: () =>
                     {
+                        if (ObjectManager.Player == null) return;
                         currentLevel = ObjectManager.Player.Level;
 
                         switch (container.BotSettings.LastUsedBotType)
