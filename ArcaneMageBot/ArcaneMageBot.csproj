@@ -44,6 +44,7 @@
     <Compile Include="ArcaneMageBot.cs" />
     <Compile Include="BuffSelfState.cs" />
     <Compile Include="CombatState.cs" />
+    <Compile Include="ArcaneMageRotation.cs" />
     <Compile Include="ConjureItemsState.cs" />
     <Compile Include="MoveToTargetState.cs" />
     <Compile Include="PowerlevelCombatState.cs" />

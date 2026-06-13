@@ -42,30 +42,30 @@ namespace AfflictionWarlockBot
             ObjectManager.Pet?.Attack();
 
             // if target is low on health, turn off wand and cast drain soul
-            if (target.HealthPercent <= 20)
+            if (AfflictionWarlockRotation.ShouldDrainSoul(target.HealthPercent))
             {
                 player.LuaCall(TurnOffWandLuaScript);
                 TryCastSpell(DrainSoul, 0, 29);
             }
 
             var wand = Inventory.GetEquippedItem(EquipSlot.Ranged);
-            if (wand != null && (player.ManaPercent <= 10 || (target.HealthPercent <= 60 && target.HealthPercent > 20) && !player.IsChanneling && !player.IsCasting))
+            if (AfflictionWarlockRotation.ShouldUseWand(wand != null, player.ManaPercent, target.HealthPercent, player.IsCasting, player.IsChanneling))
                 player.LuaCall(WandLuaScript);
             else
             {
-                TryCastSpell(DeathCoil, 0, 30, (target.IsCasting || target.IsChanneling) && target.HealthPercent > 20);
+                TryCastSpell(DeathCoil, 0, 30, AfflictionWarlockRotation.ShouldDeathCoil(target.IsCasting, target.IsChanneling, target.HealthPercent));
 
-                TryCastSpell(LifeTap, 0, int.MaxValue, player.HealthPercent > 85 && player.ManaPercent < 80);
+                TryCastSpell(LifeTap, 0, int.MaxValue, AfflictionWarlockRotation.ShouldLifeTap(player.HealthPercent, player.ManaPercent));
 
-                TryCastSpell(CurseOfAgony, 0, 30, !target.HasDebuff(CurseOfAgony) && target.HealthPercent > 90);
+                TryCastSpell(CurseOfAgony, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(CurseOfAgony), target.HealthPercent, 90));
 
-                TryCastSpell(Immolate, 0, 30, !target.HasDebuff(Immolate) && target.HealthPercent > 30);
+                TryCastSpell(Immolate, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(Immolate), target.HealthPercent, 30));
 
-                TryCastSpell(Corruption, 0, 30, !target.HasDebuff(Corruption) && target.HealthPercent > 30);
+                TryCastSpell(Corruption, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(Corruption), target.HealthPercent, 30));
 
-                TryCastSpell(SiphonLife, 0, 30, !target.HasDebuff(SiphonLife) && target.HealthPercent > 50);
+                TryCastSpell(SiphonLife, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(SiphonLife), target.HealthPercent, 50));
 
-                TryCastSpell(ShadowBolt, 0, 30, target.HealthPercent > 40 || wand == null);
+                TryCastSpell(ShadowBolt, 0, 30, AfflictionWarlockRotation.ShouldShadowBolt(target.HealthPercent, wand != null));
             }
         }
     }

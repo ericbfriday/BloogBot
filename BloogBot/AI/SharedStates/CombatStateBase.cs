@@ -288,6 +288,66 @@ namespace BloogBot.AI.SharedStates
             }
         }
 
+        // Rotation casting helpers: like TryCastSpell, but they also require the spell to be known
+        // and report whether the cast was attempted, so rotations can be written as
+        // "if (TryCastRotationSpell(...)) return;" priority chains.
+        protected bool TryCastRotationSpell(
+            string name,
+            bool condition = true,
+            Action callback = null,
+            bool castOnSelf = false) =>
+            TryCastRotationSpell(name, 0, int.MaxValue, condition, callback, castOnSelf);
+
+        protected bool TryCastRotationSpell(
+            string name,
+            int minRange,
+            int maxRange,
+            bool condition = true,
+            Action callback = null,
+            bool castOnSelf = false)
+        {
+            if (!CanCastRotationSpell(name, minRange, maxRange, condition))
+                return false;
+
+            TryCastSpell(name, minRange, maxRange, condition, callback, castOnSelf);
+            return true;
+        }
+
+        // Casts without retargeting; used for totems, self-buffs, and other untargeted spells.
+        protected bool TryCastNoTargetRotationSpell(
+            string name,
+            bool condition = true,
+            Action callback = null) =>
+            TryCastNoTargetRotationSpell(name, 0, int.MaxValue, condition, callback);
+
+        protected bool TryCastNoTargetRotationSpell(
+            string name,
+            int minRange,
+            int maxRange,
+            bool condition = true,
+            Action callback = null)
+        {
+            if (!CanCastRotationSpell(name, minRange, maxRange, condition))
+                return false;
+
+            player.LuaCall($"CastSpellByName(\"{name}\")");
+            callback?.Invoke();
+            return true;
+        }
+
+        protected bool CanCastRotationSpell(string name, int minRange, int maxRange, bool condition)
+        {
+            if (!condition || player.IsStunned || player.IsCasting || player.IsChanneling)
+                return false;
+
+            var distanceToTarget = player.Position.DistanceTo(target.Position);
+            return player.KnowsSpell(name) &&
+                player.IsSpellReady(name) &&
+                player.Mana >= player.GetManaCost(name) &&
+                distanceToTarget >= minRange &&
+                distanceToTarget <= maxRange;
+        }
+
         void CleanUp()
         {
             player.StopAllMovement();

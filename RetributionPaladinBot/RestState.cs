@@ -1,16 +1,13 @@
-﻿using BloogBot;
+using BloogBot;
 using BloogBot.AI;
 using BloogBot.AI.SharedStates;
 using BloogBot.Game;
-using BloogBot.Game.Objects;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace RetributionPaladinBot
 {
-    class RestState : IBotState
+    class RestState : RestStateBase
     {
-        const int stackCount = 5;
         const int lowLevelManaReadyPercent = 50;
         const int manaReadyPercent = 65;
         const int fullManaReadyPercent = 90;
@@ -18,66 +15,21 @@ namespace RetributionPaladinBot
 
         const string HolyLight = "Holy Light";
 
-        readonly Stack<IBotState> botStates;
-        readonly IDependencyContainer container;
-        readonly LocalPlayer player;
-        readonly WoWItem foodItem;
-        readonly WoWItem drinkItem;
-        
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
+            : base(botStates, container)
         {
-            this.botStates = botStates;
-            this.container = container;
-            player = ObjectManager.Player;
             player.SetTarget(player.Guid);
-
-            foodItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Food);
-
-            drinkItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Drink);
         }
 
-        public void Update()
+        public override void Update()
         {
             if (player.IsCasting) return;
 
             if (InCombat || (HealthOk && ManaOk))
             {
-                Wait.RemoveAll();
-                player.Stand();
-                botStates.Pop();
-
-                var foodCount = foodItem == null ? 0 : Inventory.GetItemCount(foodItem.ItemId);
-                var drinkCount = drinkItem == null ? 0 : Inventory.GetItemCount(drinkItem.ItemId);
-                var itemsToBuy = new Dictionary<string, int>();
-
-                var foodToBuy = 12 - (foodCount / stackCount);
-                if (foodToBuy > 0 && !string.IsNullOrEmpty(container.BotSettings.Food))
-                    itemsToBuy.Add(container.BotSettings.Food, foodToBuy);
-
-                var drinkToBuy = 28 - (drinkCount / stackCount);
-                if (drinkToBuy > 0 && !string.IsNullOrEmpty(container.BotSettings.Drink))
-                    itemsToBuy.Add(container.BotSettings.Drink, drinkToBuy);
-
-                if (!InCombat && itemsToBuy.Any() && !container.RunningErrands)
-                {
-                    var currentHotspot = container.GetCurrentHotspot();
-                    if (currentHotspot.TravelPath != null)
-                    {
-                        botStates.Push(new TravelState(botStates, container, currentHotspot.TravelPath.Waypoints, 0));
-                        botStates.Push(new MoveToPositionState(botStates, container, currentHotspot.TravelPath.Waypoints[0]));
-                    }
-
-                    botStates.Push(new BuyItemsState(botStates, currentHotspot.Innkeeper.Name, itemsToBuy));
-                    botStates.Push(new SellItemsState(botStates, container, currentHotspot.Innkeeper.Name));
-                    botStates.Push(new MoveToPositionState(botStates, container, currentHotspot.Innkeeper.Position));
-                    container.CheckForTravelPath(botStates, true, false);
-                    container.RunningErrands = true;
-                }
-                else
+                StopResting();
+                if (!TryRunRestockErrands(12, 28))
                     botStates.Push(new BuffSelfState(botStates, container));
-
                 return;
             }
 
@@ -114,8 +66,6 @@ namespace RetributionPaladinBot
         bool HealthOk => player.HealthPercent > 90;
 
         bool ManaOk => IsManaOk(player.Level, player.ManaPercent, player.IsDrinking, drinkItem != null);
-
-        bool InCombat => ObjectManager.Player.IsInCombat || ObjectManager.Units.Any(u => u.TargetGuid == ObjectManager.Player.Guid);
 
         internal static bool IsManaOk(int level, int manaPercent, bool isDrinking, bool hasDrink) =>
             !hasDrink ||

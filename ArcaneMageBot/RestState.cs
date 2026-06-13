@@ -1,36 +1,20 @@
-﻿using BloogBot.AI;
+using BloogBot.AI;
+using BloogBot.AI.SharedStates;
 using BloogBot.Game;
-using BloogBot.Game.Objects;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace ArcaneMageBot
 {
-    class RestState : IBotState
+    class RestState : RestStateBase
     {
         const string Evocation = "Evocation";
 
-        readonly Stack<IBotState> botStates;
-        readonly IDependencyContainer container;
-        readonly LocalPlayer player;
-
-        readonly WoWItem foodItem;
-        readonly WoWItem drinkItem;
-        
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
+            : base(botStates, container)
         {
-            this.botStates = botStates;
-            this.container = container;
-            player = ObjectManager.Player;
-
-            foodItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Food);
-
-            drinkItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Drink);
         }
 
-        public void Update()
+        public override void Update()
         {
             if (InCombat)
             {
@@ -56,17 +40,15 @@ namespace ArcaneMageBot
                 return;
             }
 
-            if (player.Level > 3 && foodItem != null && !player.IsEating && player.HealthPercent < 80)
-                foodItem.Use();
-
-            if (player.Level > 3 && drinkItem != null && !player.IsDrinking && player.ManaPercent < 80)
-                drinkItem.Use();
+            if (player.Level > 3)
+            {
+                TryEat(80, delayMs: 0);
+                TryDrink(80, delayMs: 0);
+            }
         }
 
         bool HealthOk => player.HealthPercent > 90;
 
         bool ManaOk => (player.Level < 6 && player.ManaPercent > 60) || player.ManaPercent >= 90 || (player.ManaPercent >= 75 && !player.IsDrinking);
-
-        bool InCombat => ObjectManager.Player.IsInCombat || ObjectManager.Units.Any(u => u.TargetGuid == ObjectManager.Player.Guid);
     }
 }

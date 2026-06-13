@@ -14,22 +14,18 @@ namespace ElementalShamanBot
         const string EarthShock = "Earth Shock";
         const string ElementalMastery = "Elemental Mastery";
         const string FlameShock = "Flame Shock";
-        const string FlametongueWeapon = "Flametongue Weapon";
+        const string FlametongueWeapon = ElementalShamanRotation.FlametongueWeapon;
         const string FocusedCasting = "Focused Casting";
         const string GroundingTotem = "Grounding Totem";
         const string ManaSpringTotem = "Mana Spring Totem";
         const string HealingWave = "Healing Wave";
         const string LightningBolt = "Lightning Bolt";
         const string LightningShield = "Lightning Shield";
-        const string RockbiterWeapon = "Rockbiter Weapon";
+        const string RockbiterWeapon = ElementalShamanRotation.RockbiterWeapon;
         const string SearingTotem = "Searing Totem";
         const string StoneclawTotem = "Stoneclaw Totem";
         const string StoneskinTotem = "Stoneskin Totem";
         const string TremorTotem = "Tremor Totem";
-
-        readonly string[] fearingCreatures = new[] { "Scorpid Terror" };
-        readonly string[] fireImmuneCreatures = new[] { "Rogue Flame Spirit", "Burning Destroyer" };
-        readonly string[] natureImmuneCreatures = new[] { "Swirling Vortex", "Gusting Vortex", "Dust Stormer" };
 
         readonly Stack<IBotState> botStates;
         readonly IDependencyContainer container;
@@ -62,27 +58,45 @@ namespace ElementalShamanBot
 
             TryCastSpell(GroundingTotem, 0, int.MaxValue, ObjectManager.Aggressors.Any(a => a.IsCasting && target.Mana > 0));
 
-            TryCastSpell(EarthShock, 0, 20, !natureImmuneCreatures.Contains(target.Name) && (target.IsCasting || target.IsChanneling || player.HasBuff(Clearcasting)));
+            TryCastSpell(EarthShock, 0, 20, ElementalShamanRotation.ShouldEarthShock(
+                ElementalShamanRotation.IsNatureImmune(target.Name),
+                target.IsCasting,
+                target.IsChanneling,
+                player.HasBuff(Clearcasting)));
 
-            TryCastSpell(LightningBolt, 0, 30, !natureImmuneCreatures.Contains(target.Name) && ((TargetMovingTowardPlayer && target.Position.DistanceTo(player.Position) > 15) || (!TargetMovingTowardPlayer && target.Position.DistanceTo(player.Position) > 5) || (player.HasBuff(FocusedCasting) && target.HealthPercent > 20 && Wait.For("FocusedLightningBoltDelay", 4000, true))));
+            TryCastSpell(LightningBolt, 0, 30, ElementalShamanRotation.ShouldLightningBolt(
+                ElementalShamanRotation.IsNatureImmune(target.Name),
+                TargetMovingTowardPlayer,
+                target.Position.DistanceTo(player.Position),
+                player.HasBuff(FocusedCasting),
+                target.HealthPercent,
+                player.HasBuff(FocusedCasting) && target.HealthPercent > 20 && Wait.For("FocusedLightningBoltDelay", 4000, true)));
 
-            TryCastSpell(TremorTotem, 0, int.MaxValue, fearingCreatures.Contains(target.Name) && !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 29 && u.HealthPercent > 0 && u.Name.Contains(TremorTotem)));
+            TryCastSpell(TremorTotem, 0, int.MaxValue, ElementalShamanRotation.IsFearingCreature(target.Name) && !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 29 && u.HealthPercent > 0 && u.Name.Contains(TremorTotem)));
 
             TryCastSpell(StoneclawTotem, 0, int.MaxValue, ObjectManager.Aggressors.Count() > 1);
 
             TryCastSpell(StoneskinTotem, 0, int.MaxValue, target.Mana == 0 && !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 19 && u.HealthPercent > 0 && (u.Name.Contains(StoneclawTotem) || u.Name.Contains(StoneskinTotem) || u.Name.Contains(TremorTotem))));
 
-            TryCastSpell(SearingTotem, 0, int.MaxValue, target.HealthPercent > 70 && !fireImmuneCreatures.Contains(target.Name) && target.Position.DistanceTo(player.Position) < 20 && !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 19 && u.HealthPercent > 0 && u.Name.Contains(SearingTotem)));
+            TryCastSpell(SearingTotem, 0, int.MaxValue, target.HealthPercent > 70 && !ElementalShamanRotation.IsFireImmune(target.Name) && target.Position.DistanceTo(player.Position) < 20 && !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 19 && u.HealthPercent > 0 && u.Name.Contains(SearingTotem)));
 
             TryCastSpell(ManaSpringTotem, 0, int.MaxValue, !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 19 && u.HealthPercent > 0 && u.Name.Contains(ManaSpringTotem)));
 
-            TryCastSpell(FlameShock, 0, 20, !target.HasDebuff(FlameShock) && (target.HealthPercent >= 50 || natureImmuneCreatures.Contains(target.Name)) && !fireImmuneCreatures.Contains(target.Name));
+            TryCastSpell(FlameShock, 0, 20, ElementalShamanRotation.ShouldFlameShock(
+                target.HasDebuff(FlameShock),
+                target.HealthPercent,
+                ElementalShamanRotation.IsNatureImmune(target.Name),
+                ElementalShamanRotation.IsFireImmune(target.Name)));
 
-            TryCastSpell(LightningShield, 0, int.MaxValue, !natureImmuneCreatures.Contains(target.Name) && !player.HasBuff(LightningShield));
+            TryCastSpell(LightningShield, 0, int.MaxValue, !ElementalShamanRotation.IsNatureImmune(target.Name) && !player.HasBuff(LightningShield));
 
-            TryCastSpell(RockbiterWeapon, 0, int.MaxValue, player.KnowsSpell(RockbiterWeapon) && (fireImmuneCreatures.Contains(target.Name) || !player.MainhandIsEnchanted && !player.KnowsSpell(FlametongueWeapon)));
-
-            TryCastSpell(FlametongueWeapon, 0, int.MaxValue, player.KnowsSpell(FlametongueWeapon) && !player.MainhandIsEnchanted && !fireImmuneCreatures.Contains(target.Name));
+            var weaponEnchant = ElementalShamanRotation.SelectWeaponEnchant(
+                player.KnowsSpell(RockbiterWeapon),
+                player.KnowsSpell(FlametongueWeapon),
+                player.MainhandIsEnchanted,
+                ElementalShamanRotation.IsFireImmune(target.Name));
+            if (weaponEnchant != null)
+                TryCastSpell(weaponEnchant, 0, int.MaxValue);
 
             TryCastSpell(ElementalMastery, 0, int.MaxValue);
 

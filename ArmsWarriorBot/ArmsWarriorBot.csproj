@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CombatState.cs" />
+    <Compile Include="ArmsWarriorRotation.cs" />
     <Compile Include="ArmsWarriorBot.cs" />
     <Compile Include="MoveToTargetState.cs" />
     <Compile Include="PowerlevelCombatState.cs" />

@@ -11,29 +11,22 @@ namespace ArmsWarriorBot
 {
     class CombatState : CombatStateBase, IBotState
     {
-        static readonly string[] SunderTargets = { "Snapjaw", "Snapper", "Tortoise", "Spikeshell", "Burrower", "Borer", // turtles
-            "Bear", "Grizzly", "Ashclaw", "Mauler", "Shardtooth", "Plaguebear", "Bristlefur", "Thistlefur", // bears
-            "Scorpid", "Flayer", "Stinger", "Lasher", "Pincer", // scorpids
-            "Crocolisk", "Vicejaw", "Deadmire", "Snapper", "Daggermaw", // crocs
-            "Crawler", "Crustacean", // crabs
-            "Stag" }; // other
-
         const string SunderArmorIcon = "Interface\\Icons\\Ability_Warrior_Sunder";
 
         const string BattleShout = "Battle Shout";
         const string Bloodrage = "Bloodrage";
         const string BloodFury = "Blood Fury";
-        const string DemoralizingShout = "Demoralizing Shout";
+        const string DemoralizingShout = ArmsWarriorRotation.DemoralizingShout;
         const string Execute = "Execute";
-        const string Hamstring = "Hamstring";
-        const string HeroicStrike = "Heroic Strike";
+        const string Hamstring = ArmsWarriorRotation.Hamstring;
+        const string HeroicStrike = ArmsWarriorRotation.HeroicStrike;
         const string MortalStrike = "Mortal Strike";
         const string Overpower = "Overpower";
-        const string Rend = "Rend";
+        const string Rend = ArmsWarriorRotation.Rend;
         const string Retaliation = "Retaliation";
-        const string SunderArmor = "Sunder Armor";
-        const string SweepingStrikes = "Sweeping Strikes";
-        const string ThunderClap = "Thunder Clap";
+        const string SunderArmor = ArmsWarriorRotation.SunderArmor;
+        const string SweepingStrikes = ArmsWarriorRotation.SweepingStrikes;
+        const string ThunderClap = ArmsWarriorRotation.ThunderClap;
         const string IntimidatingShout = "Intimidating Shout";
 
         readonly WoWUnit target;
@@ -68,18 +61,27 @@ namespace ArmsWarriorBot
             // Use these abilities if you are fighting exactly one mob.
             if (aggressors.Count() == 1)
             {
-                TryUseAbility(Hamstring, 10, (target.Name.Contains("Plainstrider") || target.CreatureType == CreatureType.Humanoid) && target.HealthPercent < 30 && !target.HasDebuff(Hamstring));
+                TryUseAbility(Hamstring, 10, ArmsWarriorRotation.ShouldHamstring(
+                    target.CreatureType == CreatureType.Humanoid,
+                    target.Name,
+                    target.HealthPercent,
+                    target.HasDebuff(Hamstring)));
 
                 TryUseAbility(BattleShout, 10, !player.HasBuff(BattleShout));
 
-                TryUseAbility(Rend, 10, target.HealthPercent > 50 && !target.HasDebuff(Rend) && target.CreatureType != CreatureType.Elemental && target.CreatureType != CreatureType.Undead);
+                TryUseAbility(Rend, 10, ArmsWarriorRotation.ShouldRend(target.HealthPercent, target.HasDebuff(Rend), target.CreatureType));
 
                 var sunderDebuff = target.GetDebuffs(LuaTarget.Target).FirstOrDefault(f => f.Icon == SunderArmorIcon);
-                TryUseAbility(SunderArmor, 15, (sunderDebuff == null || sunderDebuff.StackCount < 5) && target.Level >= player.Level - 2 && target.Health > 40 && SunderTargets.Any(s => target.Name.Contains(s)));
+                TryUseAbility(SunderArmor, 15, ArmsWarriorRotation.ShouldSunderArmor(
+                    sunderDebuff?.StackCount,
+                    target.Level,
+                    player.Level,
+                    target.Health,
+                    ArmsWarriorRotation.IsSunderTarget(target.Name)));
 
                 TryUseAbility(MortalStrike, 30);
 
-                TryUseAbility(HeroicStrike, player.Level < 30 ? 15 : 45, target.HealthPercent > 30);
+                TryUseAbility(HeroicStrike, ArmsWarriorRotation.HeroicStrikeRageRequirement(player.Level), target.HealthPercent > 30);
             }
 
             // Use these abilities if you are fighting TWO OR MORE mobs at once.
@@ -95,16 +97,20 @@ namespace ArmsWarriorBot
 
                 TryUseAbility(SweepingStrikes, 30, !player.HasBuff(SweepingStrikes) && target.HealthPercent > 30);
 
-                var thunderClapCondition = target.HasDebuff(ThunderClap) || !player.KnowsSpell(ThunderClap) || target.HealthPercent < 50;
-                var demoShoutCondition = target.HasDebuff(DemoralizingShout) || !player.KnowsSpell(DemoralizingShout) || target.HealthPercent < 50;
-                var sweepingStrikesCondition = player.HasBuff(SweepingStrikes) || !player.IsSpellReady(SweepingStrikes);
-                if (thunderClapCondition && demoShoutCondition && sweepingStrikesCondition)
+                if (ArmsWarriorRotation.ShouldUseSingleTargetFillersInAoe(
+                    target.HasDebuff(ThunderClap),
+                    player.KnowsSpell(ThunderClap),
+                    target.HasDebuff(DemoralizingShout),
+                    player.KnowsSpell(DemoralizingShout),
+                    target.HealthPercent,
+                    player.HasBuff(SweepingStrikes),
+                    player.IsSpellReady(SweepingStrikes)))
                 {
-                    TryUseAbility(Rend, 10, target.HealthPercent > 50 && !target.HasDebuff(Rend) && target.CreatureType != CreatureType.Elemental && target.CreatureType != CreatureType.Undead);
+                    TryUseAbility(Rend, 10, ArmsWarriorRotation.ShouldRend(target.HealthPercent, target.HasDebuff(Rend), target.CreatureType));
 
                     TryUseAbility(MortalStrike, 30);
 
-                    TryUseAbility(HeroicStrike, player.Level < 30 ? 15 : 45, target.HealthPercent > 30);
+                    TryUseAbility(HeroicStrike, ArmsWarriorRotation.HeroicStrikeRageRequirement(player.Level), target.HealthPercent > 30);
                 }
             }
         }

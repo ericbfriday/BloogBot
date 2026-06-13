@@ -44,6 +44,7 @@
     <Compile Include="FrostMageBot.cs" />
     <Compile Include="BuffSelfState.cs" />
     <Compile Include="CombatState.cs" />
+    <Compile Include="FrostMageRotation.cs" />
     <Compile Include="ConjureItemsState.cs" />
     <Compile Include="FrostMageConsumables.cs" />
     <Compile Include="MoveToTargetState.cs" />

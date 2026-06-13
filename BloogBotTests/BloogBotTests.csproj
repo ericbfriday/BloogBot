@@ -71,8 +71,20 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AfflictionWarlockRotationTests.cs" />
+    <Compile Include="ArcaneMageRotationTests.cs" />
+    <Compile Include="ArmsWarriorRotationTests.cs" />
+    <Compile Include="BackstabRogueRotationTests.cs" />
+    <Compile Include="BalanceDruidRotationTests.cs" />
+    <Compile Include="ElementalShamanRotationTests.cs" />
+    <Compile Include="FeralDruidRotationTests.cs" />
+    <Compile Include="FrostMageRotationTests.cs" />
+    <Compile Include="ProtectionPaladinRotationTests.cs" />
+    <Compile Include="CombatRogueRotationTests.cs" />
     <Compile Include="CombatStateBaseTests.cs" />
     <Compile Include="BeastmasterHunterBotTests.cs" />
+    <Compile Include="FuryWarriorRotationTests.cs" />
+    <Compile Include="ProtectionWarriorRotationTests.cs" />
     <Compile Include="EnhancementShamanRotationTests.cs" />
     <Compile Include="EnhancementShamanRestStateTests.cs" />
     <Compile Include="NavigationTests.cs" />
@@ -94,9 +106,57 @@
       <Project>{0901e784-2977-437e-8a2c-c70f0184eefb}</Project>
       <Name>BloogBot</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ArmsWarriorBot\ArmsWarriorBot.csproj">
+      <Project>{6d987661-3693-4468-aebf-17e7ab2a7220}</Project>
+      <Name>ArmsWarriorBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BackstabRogueBot\BackstabRogueBot.csproj">
+      <Project>{bbb6ac2f-5d7b-4448-9a82-b32c1781271b}</Project>
+      <Name>BackstabRogueBot</Name>
+    </ProjectReference>
     <ProjectReference Include="..\BeastmasterHunterBot\BeastmasterHunterBot.csproj">
       <Project>{09ad29dc-c64c-495f-b341-2b515faabff6}</Project>
       <Name>BeastmasterHunterBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\AfflictionWarlockBot\AfflictionWarlockBot.csproj">
+      <Project>{b68a11fd-b69d-4f9e-b5ab-7baba55e1ef5}</Project>
+      <Name>AfflictionWarlockBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ArcaneMageBot\ArcaneMageBot.csproj">
+      <Project>{08772433-7d9d-4020-84a0-eeb307adf232}</Project>
+      <Name>ArcaneMageBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BalanceDruidBot\BalanceDruidBot.csproj">
+      <Project>{7516e73c-154e-4660-8e0a-7d92b4286054}</Project>
+      <Name>BalanceDruidBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CombatRogueBot\CombatRogueBot.csproj">
+      <Project>{6531f952-9097-4659-b638-0d47e0b84031}</Project>
+      <Name>CombatRogueBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ElementalShamanBot\ElementalShamanBot.csproj">
+      <Project>{0273bae7-ff35-4faa-8da9-e68cb3f83222}</Project>
+      <Name>ElementalShamanBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FeralDruidBot\FeralDruidBot.csproj">
+      <Project>{4577787e-206c-4723-a2bc-1c034e8e3e14}</Project>
+      <Name>FeralDruidBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FrostMageBot\FrostMageBot.csproj">
+      <Project>{c774a493-4387-43fa-9daa-a60a2d2ca582}</Project>
+      <Name>FrostMageBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ProtectionPaladinBot\ProtectionPaladinBot.csproj">
+      <Project>{cc021dac-32ee-4bcb-858d-1851639963d6}</Project>
+      <Name>ProtectionPaladinBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FuryWarriorBot\FuryWarriorBot.csproj">
+      <Project>{f645320c-b954-4057-8f54-8968f8cd581f}</Project>
+      <Name>FuryWarriorBot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ProtectionWarriorBot\ProtectionWarriorBot.csproj">
+      <Project>{88c63d3d-2c7c-4e99-a225-f51b57fa4078}</Project>
+      <Name>ProtectionWarriorBot</Name>
     </ProjectReference>
     <ProjectReference Include="..\EnhancementShamanBot\EnhancementShamanBot.csproj">
       <Project>{dd637f14-ab72-4175-a830-5d51adba5525}</Project>

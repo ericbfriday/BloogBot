@@ -15,20 +15,15 @@ namespace FrostMageBot
     {
         const string WandLuaScript = "if IsAutoRepeatAction(11) == nil then CastSpellByName('Shoot') end";
 
-        readonly string[] FireWardTargets = new[] { "Fire", "Flame", "Infernal", "Searing", "Hellcaller", "Dragon", "Whelp" };
-        readonly string[] FrostWardTargets = new[] { "Ice", "Frost" };
-
         const string ColdSnap = "Cold Snap";
         const string ConeOfCold = "Cone of Cold";
         const string Counterspell = "Counterspell";
         const string Evocation = "Evocation";
-        const string Fireball = "Fireball";
+        const string Fireball = FrostMageRotation.Fireball;
         const string FireBlast = "Fire Blast";
-        const string FireWard = "Fire Ward";
         const string FrostNova = "Frost Nova";
-        const string FrostWard = "Frost Ward";
         const string Frostbite = "Frostbite";
-        const string Frostbolt = "Frostbolt";
+        const string Frostbolt = FrostMageRotation.Frostbolt;
         const string IceBarrier = "Ice Barrier";
         const string IcyVeins = "Icy Veins";
         const string SummonWaterElemental = "Summon Water Elemental";
@@ -71,18 +66,9 @@ namespace FrostMageBot
             this.botStates = botStates;
             this.container = container;
 
-            if (!player.KnowsSpell(Frostbolt))
-                nuke = Fireball;
-            else if (player.Level >= 8)
-                nuke = Frostbolt;
-            else if (player.Level >= 6)
-                nuke = Fireball;
-            else if (player.Level >= 4)
-                nuke = Frostbolt;
-            else
-                nuke = Fireball;
+            nuke = FrostMageRotation.SelectNuke(player.KnowsSpell(Frostbolt), player.Level);
 
-            range = 29 + (ObjectManager.GetTalentRank(3, 11) * 3);
+            range = FrostMageRotation.CalculateNukeRange(ObjectManager.GetTalentRank(3, 11));
 
             combatStateStartTime = Environment.TickCount;
         }
@@ -161,10 +147,10 @@ namespace FrostMageBot
             if (TriggerLosRecovery())
                 return;
 
-            TryCastSpell(Evocation, 0, int.MaxValue, (player.HealthPercent > 50 || PlayerHasIceBarrier) && player.ManaPercent < 8 && target.HealthPercent > 15);
+            TryCastSpell(Evocation, 0, int.MaxValue, FrostMageRotation.ShouldEvocate(player.HealthPercent, PlayerHasIceBarrier, player.ManaPercent, target.HealthPercent));
 
             var wand = Inventory.GetEquippedItem(EquipSlot.Ranged);
-            if (wand != null && player.ManaPercent <= 10 && !player.IsCasting && !player.IsChanneling)
+            if (FrostMageRotation.ShouldUseWand(wand != null, player.ManaPercent, player.IsCasting, player.IsChanneling))
                 player.LuaCall(WandLuaScript);
             else
             {
@@ -174,15 +160,26 @@ namespace FrostMageBot
 
                 TryCastSpell(IcyVeins, ObjectManager.Aggressors.Count() > 1);
 
-                TryCastSpell(FireWard, 0, int.MaxValue, FireWardTargets.Any(c => target.Name.Contains(c)) && (target.HealthPercent > 20 || player.HealthPercent < 10));
-
-                TryCastSpell(FrostWard, 0, int.MaxValue, FrostWardTargets.Any(c => target.Name.Contains(c)) && (target.HealthPercent > 20 || player.HealthPercent < 10));
+                var ward = FrostMageRotation.SelectWard(target.Name);
+                if (ward != null)
+                    TryCastSpell(ward, 0, int.MaxValue, FrostMageRotation.ShouldUseWard(target.HealthPercent, player.HealthPercent));
 
                 TryCastSpell(Counterspell, 0, 30, target.Mana > 0 && target.IsCasting);
 
-                TryCastSpell(IceBarrier, 0, 50, !PlayerHasIceBarrier && (ObjectManager.Aggressors.Count() >= 2 || (!player.IsSpellReady(FrostNova) && player.HealthPercent < 95 && player.ManaPercent > 40 && (target.HealthPercent > 20 || player.HealthPercent < 10))));
+                TryCastSpell(IceBarrier, 0, 50, FrostMageRotation.ShouldIceBarrier(
+                    PlayerHasIceBarrier,
+                    ObjectManager.Aggressors.Count(),
+                    player.IsSpellReady(FrostNova),
+                    player.HealthPercent,
+                    player.ManaPercent,
+                    target.HealthPercent));
 
-                TryCastSpell(FrostNova, 0, 9, target.TargetGuid == player.Guid && (target.HealthPercent > 20 || player.HealthPercent < 30) && !IsTargetFrozen && !ObjectManager.Units.Any(u => u.Guid != target.Guid && u.HealthPercent > 0 && u.Guid != player.Guid && u.Position.DistanceTo(player.Position) <= 12), callback: FrostNovaCallback);
+                TryCastSpell(FrostNova, 0, 9, FrostMageRotation.ShouldFrostNova(
+                    target.TargetGuid == player.Guid,
+                    target.HealthPercent,
+                    player.HealthPercent,
+                    IsTargetFrozen,
+                    ObjectManager.Units.Any(u => u.Guid != target.Guid && u.HealthPercent > 0 && u.Guid != player.Guid && u.Position.DistanceTo(player.Position) <= 12)), callback: FrostNovaCallback);
 
                 TryCastSpell(DeepFreeze, 0, range, IsTargetFrozen || player.HasBuff(FingersOfFrostBuff));
 

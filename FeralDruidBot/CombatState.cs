@@ -12,8 +12,8 @@ namespace FeralDruidBot
     class CombatState : CombatStateBase, IBotState
     {
         // Shapeshifting
-        const string BearForm = "Bear Form";
-        const string CatForm = "Cat Form";
+        const string BearForm = FeralDruidRotation.BearForm;
+        const string CatForm = FeralDruidRotation.CatForm;
 
         // Bear
         const string Maul = "Maul";
@@ -77,7 +77,7 @@ namespace FeralDruidBot
             if (player.Level <= 12)
             {
                 // if low on mana, move into melee range
-                if (player.ManaPercent < 20 && player.Position.DistanceTo(target.Position) > 5)
+                if (FeralDruidRotation.ShouldMoveIntoMeleeForMana(player.ManaPercent, player.Position.DistanceTo(target.Position)))
                 {
                     player.MoveToward(target.Position);
                     return;
@@ -100,7 +100,7 @@ namespace FeralDruidBot
 
                 TryUseBearAbility(Enrage, condition: player.CurrentShapeshiftForm == BearForm);
 
-                TryUseBearAbility(Maul, Math.Max(15 - (player.Level - 9), 10), player.CurrentShapeshiftForm == BearForm);
+                TryUseBearAbility(Maul, FeralDruidRotation.MaulRageRequirement(player.Level), player.CurrentShapeshiftForm == BearForm);
             }
             // cat form
             else if (player.Level >= 20)
@@ -118,9 +118,7 @@ namespace FeralDruidBot
 
                 TryCastSpell(FaerieFire, condition: !target.HasDebuff(FaerieFire));
 
-                TryUseCatAbility(Rip, 30, true, condition:
-                    !target.HasDebuff(Rip) &&
-                    player.ComboPoints >= 5);
+                TryUseCatAbility(Rip, 30, true, condition: FeralDruidRotation.ShouldRip(target.HasDebuff(Rip), player.ComboPoints));
 
                 TryUseCatAbility(FerociousBite, 35, true, condition: player.ComboPoints >= 5);
 
@@ -134,7 +132,13 @@ namespace FeralDruidBot
 
         void TryUseBearAbility(string name, int requiredRage = 0, bool condition = true, Action callback = null)
         {
-            if (player.IsSpellReady(name) && player.Rage >= requiredRage && !player.IsStunned && player.CurrentShapeshiftForm == BearForm && condition)
+            if (FeralDruidRotation.CanUseBearAbility(
+                player.IsSpellReady(name),
+                player.Rage,
+                requiredRage,
+                player.IsStunned,
+                player.CurrentShapeshiftForm == BearForm,
+                condition))
             {
                 player.LuaCall($"CastSpellByName(\"{name}\")");
                 callback?.Invoke();
@@ -143,7 +147,15 @@ namespace FeralDruidBot
 
         void TryUseCatAbility(string name, int requiredEnergy = 0, bool requiresComboPoints = false, bool condition = true, Action callback = null)
         {
-            if (player.IsSpellReady(name) && player.Energy >= requiredEnergy && (!requiresComboPoints || player.ComboPoints > 0) && !player.IsStunned && player.CurrentShapeshiftForm == CatForm && condition)
+            if (FeralDruidRotation.CanUseCatAbility(
+                player.IsSpellReady(name),
+                player.Energy,
+                requiredEnergy,
+                requiresComboPoints,
+                player.ComboPoints,
+                player.IsStunned,
+                player.CurrentShapeshiftForm == CatForm,
+                condition))
             {
                 player.LuaCall($"CastSpellByName(\"{name}\")");
                 callback?.Invoke();

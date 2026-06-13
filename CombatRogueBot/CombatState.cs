@@ -38,7 +38,7 @@ namespace CombatRogueBot
             if (base.Update())
                 return;
 
-            TryUseAbility(AdrenalineRush, 0, ObjectManager.Aggressors.Count() == 3 && player.HealthPercent > 80);
+            TryUseAbility(AdrenalineRush, 0, CombatRogueRotation.ShouldAdrenalineRush(ObjectManager.Aggressors.Count(), player.HealthPercent));
 
             TryUseAbilityById(BloodFury, 3, 0, target.HealthPercent > 80);
 
@@ -46,7 +46,7 @@ namespace CombatRogueBot
 
             TryUseAbility(BladeFlurry, 25, ObjectManager.Aggressors.Count() > 1);
 
-            TryUseAbility(SliceAndDice, 25, !player.HasBuff(SliceAndDice) && target.HealthPercent > 70 && player.ComboPoints == 2);
+            TryUseAbility(SliceAndDice, 25, CombatRogueRotation.ShouldSliceAndDice(player.HasBuff(SliceAndDice), target.HealthPercent, player.ComboPoints));
 
             TryUseAbility(Riposte, 10, player.CanRiposte);
 
@@ -54,16 +54,11 @@ namespace CombatRogueBot
 
             TryUseAbility(Gouge, 45, ReadyToInterrupt(target) && !player.IsSpellReady(Kick));
 
-            var readyToEviscerate =
-                target.HealthPercent <= 15 && player.ComboPoints >= 2
-                || target.HealthPercent <= 25 && player.ComboPoints >= 3
-                || target.HealthPercent <= 35 && player.ComboPoints >= 4
-                || player.ComboPoints == 5;
-            TryUseAbility(Eviscerate, 35, readyToEviscerate);
+            TryUseAbility(Eviscerate, 35, CombatRogueRotation.IsReadyToEviscerate(target.HealthPercent, player.ComboPoints));
 
             TryUseAbility(SinisterStrike, 45, player.ComboPoints < 5);
         }
 
-        bool ReadyToInterrupt(WoWUnit target) => target.Mana > 0 && (target.IsCasting || target.IsChanneling);
+        bool ReadyToInterrupt(WoWUnit target) => CombatRogueRotation.ReadyToInterrupt(target.Mana, target.IsCasting, target.IsChanneling);
     }
 }

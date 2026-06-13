@@ -136,21 +136,19 @@ namespace BackstabRogueBot
 
             // ----- COMBAT ROTATION -----
 
-            var readyToEviscerate =
-                target.HealthPercent <= 20 && player.ComboPoints >= 2
-                || target.HealthPercent <= 30 && player.ComboPoints >= 3
-                || target.HealthPercent <= 40 && player.ComboPoints >= 4
-                || player.ComboPoints == 5;
+            var readyToEviscerate = BackstabRogueRotation.IsReadyToEviscerate(target.HealthPercent, player.ComboPoints);
 
             TryUseAbility(Eviscerate, 35, readyToEviscerate);
 
-            TryUseAbility(SliceAndDice, 25, !player.HasBuff(SliceAndDice) && target.HealthPercent > 40 && player.ComboPoints <= 3 && player.ComboPoints >= 2);
+            TryUseAbility(SliceAndDice, 25, BackstabRogueRotation.ShouldSliceAndDice(player.HasBuff(SliceAndDice), target.HealthPercent, player.ComboPoints));
 
             // TryUseAbility(ExposeArmor, 25, player.HasBuff(SliceAndDice) && target.HealthPercent > 50 && player.ComboPoints <= 2 && player.ComboPoints >= 1);
 
-            TryUseAbility(SinisterStrike, 45, !player.IsSpellReady(GhostlyStrike) && !ReadyToInterrupt(target) && player.ComboPoints < 5 && !readyToEviscerate);
+            var shouldUseComboBuilder = BackstabRogueRotation.ShouldUseComboBuilder(ReadyToInterrupt(target), player.ComboPoints, readyToEviscerate);
 
-            TryUseAbility(GhostlyStrike, 40, player.IsSpellReady(GhostlyStrike) && player.KnowsSpell(GhostlyStrike) && !ReadyToInterrupt(target) && player.ComboPoints < 5 && !readyToEviscerate);
+            TryUseAbility(SinisterStrike, 45, !player.IsSpellReady(GhostlyStrike) && shouldUseComboBuilder);
+
+            TryUseAbility(GhostlyStrike, 40, player.IsSpellReady(GhostlyStrike) && player.KnowsSpell(GhostlyStrike) && shouldUseComboBuilder);
 
             TryUseAbilityById(BloodFury, 3, 0, player.IsSpellReady(BloodFury) && target.HealthPercent > 80);
 
@@ -166,7 +164,7 @@ namespace BackstabRogueBot
 
             // we use Kidneyshot (with 1 or 2 combo points only) before Gouge as Gouge has a longer cooldown and requires more energy, so sometimes gouge doesn't fire before casting is done.
 
-            TryUseAbility(KidneyShot, 25, ReadyToInterrupt(target) && !player.IsSpellReady(Kick) && player.ComboPoints >= 1 && player.ComboPoints <= 2);
+            TryUseAbility(KidneyShot, 25, BackstabRogueRotation.ShouldKidneyShotInterrupt(ReadyToInterrupt(target), player.IsSpellReady(Kick), player.ComboPoints));
 
             TryUseAbility(Gouge, 45, ReadyToInterrupt(target) && !player.IsSpellReady(Kick));
         }
@@ -177,7 +175,7 @@ namespace BackstabRogueBot
             riposteStartTime = Environment.TickCount;
         }
 
-        bool ReadyToInterrupt(WoWUnit target) => target.Mana > 0 && (target.IsCasting || target.IsChanneling);
+        bool ReadyToInterrupt(WoWUnit target) => BackstabRogueRotation.ReadyToInterrupt(target.Mana, target.IsCasting, target.IsChanneling);
 
         Action RiposteCallback => () => readyToRiposte = false;
     }

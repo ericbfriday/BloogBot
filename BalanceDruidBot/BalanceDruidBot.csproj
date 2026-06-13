@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="BuffSelfState.cs" />
     <Compile Include="CombatState.cs" />
+    <Compile Include="BalanceDruidRotation.cs" />
     <Compile Include="BalanceDruidBot.cs" />
     <Compile Include="HealSelfState.cs" />
     <Compile Include="MoveToTargetState.cs" />

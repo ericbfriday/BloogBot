@@ -286,62 +286,6 @@ namespace EnhancementShamanBot
             !player.IsCasting &&
             !player.IsChanneling;
 
-        bool TryCastRotationSpell(
-            string name,
-            bool condition = true,
-            System.Action callback = null,
-            bool castOnSelf = false) =>
-            TryCastRotationSpell(name, 0, int.MaxValue, condition, callback, castOnSelf);
-
-        bool TryCastNoTargetRotationSpell(
-            string name,
-            bool condition = true,
-            System.Action callback = null) =>
-            TryCastNoTargetRotationSpell(name, 0, int.MaxValue, condition, callback);
-
-        bool TryCastNoTargetRotationSpell(
-            string name,
-            int minRange,
-            int maxRange,
-            bool condition = true,
-            System.Action callback = null)
-        {
-            if (!CanCastRotationSpell(name, minRange, maxRange, condition))
-                return false;
-
-            player.LuaCall($"CastSpellByName(\"{name}\")");
-            callback?.Invoke();
-            return true;
-        }
-
-        bool TryCastRotationSpell(
-            string name,
-            int minRange,
-            int maxRange,
-            bool condition = true,
-            System.Action callback = null,
-            bool castOnSelf = false)
-        {
-            if (!CanCastRotationSpell(name, minRange, maxRange, condition))
-                return false;
-
-            TryCastSpell(name, minRange, maxRange, condition, callback, castOnSelf);
-            return true;
-        }
-
-        bool CanCastRotationSpell(string name, int minRange, int maxRange, bool condition)
-        {
-            if (!condition || player.IsStunned || player.IsCasting || player.IsChanneling)
-                return false;
-
-            var distanceToTarget = player.Position.DistanceTo(target.Position);
-            return player.KnowsSpell(name) &&
-                player.IsSpellReady(name) &&
-                player.Mana >= player.GetManaCost(name) &&
-                distanceToTarget >= minRange &&
-                distanceToTarget <= maxRange;
-        }
-
         bool IsLongFightTarget() =>
             target.HealthPercent > 80 &&
             (target.CreatureRank != CreatureRank.Normal || ObjectManager.Aggressors.Count() >= 3) &&

@@ -11,8 +11,8 @@ namespace FuryWarriorBot
 {
     class CombatState : CombatStateBase, IBotState
     {
-        const string BattleStance = "Battle Stance";
-        const string BerserkerStance = "Berserker Stance";
+        const string BattleStance = FuryWarriorRotation.BattleStance;
+        const string BerserkerStance = FuryWarriorRotation.BerserkerStance;
 
         const string BattleShout = "Battle Shout";
         const string BerserkerRage = "Berserker Rage";
@@ -104,9 +104,14 @@ namespace FuryWarriorBot
             var spellcastingAggressors = ObjectManager.Aggressors
                 .Where(a => a.Mana > 0);
             // Use these abilities when fighting any number of mobs.   
-            TryUseAbility(BerserkerStance, condition: player.Level >= 30 && currentStance == BattleStance && (target.HasDebuff(Rend) || target.HealthPercent < 80 || target.CreatureType == CreatureType.Elemental || target.CreatureType == CreatureType.Undead));
+            TryUseAbility(BerserkerStance, condition: FuryWarriorRotation.ShouldEnterBerserkerStance(
+                player.Level,
+                currentStance,
+                target.HasDebuff(Rend),
+                target.HealthPercent,
+                target.CreatureType));
 
-            TryUseAbility(Pummel, 10, currentStance == BerserkerStance && target.Mana > 0 && (target.IsCasting || target.IsChanneling));
+            TryUseAbility(Pummel, 10, FuryWarriorRotation.ShouldPummel(currentStance, target.Mana, target.IsCasting, target.IsChanneling));
 
             // TryUseAbility(Rend, 10, (currentStance == BattleStance && target.HealthPercent > 50 && !target.HasDebuff(Rend) && (target.CreatureType != CreatureType.Elemental && target.CreatureType != CreatureType.Undead)));
 
@@ -133,10 +138,18 @@ namespace FuryWarriorBot
 
                 // TryUseAbility(Cleave, 20, target.HealthPercent > 20 && FacingAllTargets);
 
-                TryUseAbility(Whirlwind, 25, target.HealthPercent > 20 && currentStance == BerserkerStance && !target.HasDebuff(IntimidatingShout) && AggressorsInMelee);
+                TryUseAbility(Whirlwind, 25, FuryWarriorRotation.ShouldWhirlwind(
+                    currentStance,
+                    target.HealthPercent,
+                    target.HasDebuff(IntimidatingShout),
+                    AggressorsInMelee));
 
-                // if our target uses melee, but there's a caster attacking us, do not use retaliation
-                TryUseAbility(Retaliation, 0, player.IsSpellReady(Retaliation) && spellcastingAggressors.Count() == 0 && currentStance == BattleStance && FacingAllTargets && !ObjectManager.Aggressors.Any(a => a.HasDebuff(IntimidatingShout)));
+                TryUseAbility(Retaliation, 0, FuryWarriorRotation.ShouldUseRetaliation(
+                    player.IsSpellReady(Retaliation),
+                    spellcastingAggressors.Count(),
+                    currentStance,
+                    FacingAllTargets,
+                    ObjectManager.Aggressors.Any(a => a.HasDebuff(IntimidatingShout))));
             }
 
             // Use these abilities if you are fighting only one mob at a time, or multiple and one or more are not in melee range.
@@ -150,7 +163,7 @@ namespace FuryWarriorBot
 
                 TryUseAbility(Hamstring, 10, target.CreatureType == CreatureType.Humanoid && !target.HasDebuff(Hamstring));
 
-                TryUseAbility(HeroicStrike, player.Level < 30 ? 15 : 45, target.HealthPercent > 30);
+                TryUseAbility(HeroicStrike, FuryWarriorRotation.HeroicStrikeRageRequirement(player.Level), target.HealthPercent > 30);
 
                 TryUseAbility(Execute, 15, target.HealthPercent < 20);
 

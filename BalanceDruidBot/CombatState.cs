@@ -12,8 +12,6 @@ namespace BalanceDruidBot
 {
     class CombatState : CombatStateBase, IBotState
     {
-        static readonly string[] ImmuneToNatureDamage = { "Vortex", "Whirlwind", "Whirling", "Dust", "Cyclone" };
-
         const string AbolishPoison = "Abolish Poison";
         const string EntanglingRoots = "Entangling Roots";
         const string HealingTouch = "Healing Touch";
@@ -76,7 +74,10 @@ namespace BalanceDruidBot
                 return;
 
             // heal self if we're injured
-            if (player.HealthPercent < 30 && (player.Mana >= player.GetManaCost(HealingTouch) || player.Mana >= player.GetManaCost(Rejuvenation)))
+            if (BalanceDruidRotation.ShouldHealSelf(
+                player.HealthPercent,
+                player.Mana >= player.GetManaCost(HealingTouch),
+                player.Mana >= player.GetManaCost(Rejuvenation)))
             {
                 Wait.RemoveAll();
                 botStates.Push(new HealSelfState(botStates, target));
@@ -101,15 +102,18 @@ namespace BalanceDruidBot
 
             TryCastSpell(Innervate, player.ManaPercent < 10, castOnSelf: true);
 
-            TryCastSpell(RemoveCurse, 0, int.MaxValue, player.IsCursed && !player.HasBuff(MoonkinForm), castOnSelf: true);
+            TryCastSpell(RemoveCurse, 0, int.MaxValue, BalanceDruidRotation.ShouldCleanseSelf(player.IsCursed, player.HasBuff(MoonkinForm)), castOnSelf: true);
 
-            TryCastSpell(AbolishPoison, 0, int.MaxValue, player.IsPoisoned && !player.HasBuff(MoonkinForm), castOnSelf: true);
+            TryCastSpell(AbolishPoison, 0, int.MaxValue, BalanceDruidRotation.ShouldCleanseSelf(player.IsPoisoned, player.HasBuff(MoonkinForm)), castOnSelf: true);
 
-            TryCastSpell(InsectSwarm, 0, 30, !target.HasDebuff(InsectSwarm) && target.HealthPercent > 20 && !ImmuneToNatureDamage.Any(s => target.Name.Contains(s)));
+            TryCastSpell(InsectSwarm, 0, 30, BalanceDruidRotation.ShouldInsectSwarm(
+                target.HasDebuff(InsectSwarm),
+                target.HealthPercent,
+                BalanceDruidRotation.IsNatureImmune(target.Name)));
 
             TryCastSpell(Moonfire, 0, 30, !target.HasDebuff(Moonfire));
 
-            TryCastSpell(Wrath, 0, 30, !ImmuneToNatureDamage.Any(s => target.Name.Contains(s)));
+            TryCastSpell(Wrath, 0, 30, !BalanceDruidRotation.IsNatureImmune(target.Name));
         }
     }
 }

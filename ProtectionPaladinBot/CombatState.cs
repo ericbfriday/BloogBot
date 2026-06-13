@@ -61,15 +61,18 @@ namespace ProtectionPaladinBot
 
             TryCastSpell(DivinePlea, player.ManaPercent < 50);
 
-            TryCastSpell(LayOnHands, player.Mana < player.GetManaCost(HolyLight) && player.HealthPercent < 10, castOnSelf: true);
+            TryCastSpell(LayOnHands, ProtectionPaladinRotation.ShouldLayOnHands(player.Mana >= player.GetManaCost(HolyLight), player.HealthPercent), castOnSelf: true);
 
             TryCastSpell(Purify, player.IsPoisoned || player.IsDiseased, castOnSelf: true);
 
             TryCastSpell(RighteousFury, !player.HasBuff(RighteousFury));
 
-            TryCastSpell(DevotionAura, !player.HasBuff(DevotionAura) && !player.KnowsSpell(RetributionAura));
-
-            TryCastSpell(RetributionAura, !player.HasBuff(RetributionAura) && player.KnowsSpell(RetributionAura));
+            var aura = ProtectionPaladinRotation.SelectAura(
+                player.KnowsSpell(RetributionAura),
+                player.HasBuff(DevotionAura),
+                player.HasBuff(RetributionAura));
+            if (aura != null)
+                TryCastSpell(aura);
 
             TryCastSpell(Exorcism, 0, 30, target.CreatureType == CreatureType.Undead || target.CreatureType == CreatureType.Demon);
 
@@ -83,17 +86,25 @@ namespace ProtectionPaladinBot
             // we may want different bot .dlls for each client?
             if (ClientHelper.ClientVersion == ClientVersion.WotLK)
             {
-                TryCastSpell(JudgementOfWisdom, 0, 10, !target.HasDebuff(JudgementOfWisdom) && player.Buffs.Any(b => b.Name.StartsWith("Seal of")));
-                TryCastSpell(JudgementOfLight, 0, 10, !target.HasDebuff(JudgementOfLight) && player.Buffs.Any(b => b.Name.StartsWith("Seal of")) && !player.KnowsSpell(JudgementOfWisdom));
+                var hasActiveSeal = player.Buffs.Any(b => b.Name.StartsWith("Seal of"));
+                TryCastSpell(JudgementOfWisdom, 0, 10, ProtectionPaladinRotation.ShouldJudgementOfWisdom(target.HasDebuff(JudgementOfWisdom), hasActiveSeal));
+                TryCastSpell(JudgementOfLight, 0, 10, ProtectionPaladinRotation.ShouldJudgementOfLight(target.HasDebuff(JudgementOfLight), hasActiveSeal, player.KnowsSpell(JudgementOfWisdom)));
             }
             else
             {
-                TryCastSpell(Judgement, 0, 10, player.HasBuff(SealOfTheCrusader) || (player.HasBuff(SealOfRighteousness) && (player.ManaPercent >= 95 || target.HealthPercent <= 3)));
+                TryCastSpell(Judgement, 0, 10, ProtectionPaladinRotation.ShouldUseLegacyJudgement(
+                    player.HasBuff(SealOfTheCrusader),
+                    player.HasBuff(SealOfRighteousness),
+                    player.ManaPercent,
+                    target.HealthPercent));
             }
 
             TryCastSpell(SealOfTheCrusader, !player.HasBuff(SealOfTheCrusader) && !target.HasDebuff(JudgementOfTheCrusader));
 
-            TryCastSpell(SealOfRighteousness, !player.HasBuff(SealOfRighteousness) && (target.HasDebuff(JudgementOfTheCrusader) || !player.KnowsSpell(JudgementOfTheCrusader)));
+            TryCastSpell(SealOfRighteousness, ProtectionPaladinRotation.ShouldSealOfRighteousness(
+                player.HasBuff(SealOfRighteousness),
+                target.HasDebuff(JudgementOfTheCrusader),
+                player.KnowsSpell(JudgementOfTheCrusader)));
 
             TryCastSpell(HolyShield, !player.HasBuff(HolyShield) && target.HealthPercent > 50);
         }

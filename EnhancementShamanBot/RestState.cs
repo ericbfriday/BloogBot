@@ -1,17 +1,14 @@
-﻿using BloogBot;
+using BloogBot;
 using BloogBot.AI;
 using BloogBot.AI.SharedStates;
 using BloogBot.Game;
 using BloogBot.Game.Enums;
-using BloogBot.Game.Objects;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace EnhancementShamanBot
 {
-    class RestState : IBotState
+    class RestState : RestStateBase
     {
-        const int stackCount = 5;
         const int lowLevelManaReadyPercent = 50;
         const int manaReadyPercent = 65;
         const int fullManaReadyPercent = 90;
@@ -19,66 +16,19 @@ namespace EnhancementShamanBot
 
         const string HealingWave = "Healing Wave";
 
-        readonly Stack<IBotState> botStates;
-        readonly IDependencyContainer container;
-        readonly LocalPlayer player;
-        readonly WoWItem foodItem;
-        readonly WoWItem drinkItem;
-
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
+            : base(botStates, container)
         {
-            this.botStates = botStates;
-            this.container = container;
-            player = ObjectManager.Player;
-
-            foodItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Food);
-
-            drinkItem = Inventory.GetAllItems()
-                .FirstOrDefault(i => i.Info.Name == container.BotSettings.Drink);
         }
 
-        public void Update()
+        public override void Update()
         {
             if (player.IsCasting) return;
 
             if (InCombat || (HealthOk && ManaOk))
             {
-                Wait.RemoveAll();
-                player.Stand();
-                botStates.Pop();
-
-                var foodCount = foodItem == null ? 0 : Inventory.GetItemCount(foodItem.ItemId);
-                var drinkCount = drinkItem == null ? 0 : Inventory.GetItemCount(drinkItem.ItemId);
-                if (!InCombat && (foodCount == 0 || drinkCount == 0) && !container.RunningErrands)
-                {
-                    var foodToBuy = 12 - (foodCount / stackCount);
-                    var drinkToBuy = 28 - (drinkCount / stackCount);
-                    var itemsToBuy = new Dictionary<string, int>();
-
-                    if (foodToBuy > 0 && !string.IsNullOrEmpty(container.BotSettings.Food))
-                        itemsToBuy.Add(container.BotSettings.Food, foodToBuy);
-
-                    if (drinkToBuy > 0 && !string.IsNullOrEmpty(container.BotSettings.Drink))
-                        itemsToBuy.Add(container.BotSettings.Drink, drinkToBuy);
-
-                    if (!itemsToBuy.Any())
-                        return;
-
-                    var currentHotspot = container.GetCurrentHotspot();
-                    if (currentHotspot.TravelPath != null)
-                    {
-                        botStates.Push(new TravelState(botStates, container, currentHotspot.TravelPath.Waypoints, 0));
-                        botStates.Push(new MoveToPositionState(botStates, container, currentHotspot.TravelPath.Waypoints[0]));
-                    }
-
-                    botStates.Push(new BuyItemsState(botStates, currentHotspot.Innkeeper.Name, itemsToBuy));
-                    botStates.Push(new SellItemsState(botStates, container, currentHotspot.Innkeeper.Name));
-                    botStates.Push(new MoveToPositionState(botStates, container, currentHotspot.Innkeeper.Position));
-                    container.CheckForTravelPath(botStates, true, false);
-                    container.RunningErrands = true;
-                }
-
+                StopResting();
+                TryRunRestockErrands(12, 28);
                 return;
             }
 
@@ -113,8 +63,6 @@ namespace EnhancementShamanBot
         bool HealthOk => player.HealthPercent > 90;
 
         bool ManaOk => IsManaOk(player.Level, player.ManaPercent, player.IsDrinking, drinkItem != null);
-
-        bool InCombat => ObjectManager.Player.IsInCombat || ObjectManager.Units.Any(u => u.TargetGuid == ObjectManager.Player.Guid);
 
         int GetHealingWaveRank()
         {

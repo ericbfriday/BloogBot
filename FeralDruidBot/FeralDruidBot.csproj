@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="BuffSelfState.cs" />
     <Compile Include="CombatState.cs" />
+    <Compile Include="FeralDruidRotation.cs" />
     <Compile Include="FeralDruidBot.cs" />
     <Compile Include="HealSelfState.cs" />
     <Compile Include="MoveToTargetState.cs" />

@@ -14,7 +14,7 @@ namespace ProtectionWarriorBot
         const string Berserking = "Berserking";
         const string Bloodrage = "Bloodrage";
         const string ConcussionBlow = "Concussion Blow";
-        const string DemoralizingShout = "Demoralizing Shout";
+        const string DemoralizingShout = ProtectionWarriorRotation.DemoralizingShout;
         const string Execute = "Execute";
         const string HeroicStrike = "Heroic Strike";
         const string LastStand = "Last Stand";
@@ -23,7 +23,7 @@ namespace ProtectionWarriorBot
         const string Retaliation = "Retaliation";
         const string ShieldBash = "Shield Bash";
         const string ShieldSlam = "Shield Slam";
-        const string ThunderClap = "Thunder Clap";
+        const string ThunderClap = ProtectionWarriorRotation.ThunderClap;
 
         readonly WoWUnit target;
         readonly LocalPlayer player;
@@ -49,13 +49,13 @@ namespace ProtectionWarriorBot
             {
                 TryUseAbility(Retaliation);
             }
-            if (ObjectManager.Aggressors.Count() >= 2 && (!target.HasDebuff(DemoralizingShout) || !target.HasDebuff(ThunderClap)))
+            if (ProtectionWarriorRotation.ShouldUseMultiTargetAbilities(ObjectManager.Aggressors.Count(), target.HasDebuff(DemoralizingShout), target.HasDebuff(ThunderClap)))
             {
                 TryUseAbility(DemoralizingShout, 10, !target.HasDebuff(DemoralizingShout) && ObjectManager.Aggressors.All(a => a.Position.DistanceTo(player.Position) < 10));
 
                 TryUseAbility(ThunderClap, 20, !target.HasDebuff(ThunderClap) && ObjectManager.Aggressors.All(a => a.Position.DistanceTo(player.Position) < 10));
             }
-            else if (ObjectManager.Aggressors.Count() == 1 || (target.HasDebuff(DemoralizingShout) && target.HasDebuff(ThunderClap)))
+            else if (ProtectionWarriorRotation.ShouldUseSingleTargetAbilities(ObjectManager.Aggressors.Count(), target.HasDebuff(DemoralizingShout), target.HasDebuff(ThunderClap)))
             {
                 TryUseAbility(LastStand, condition: player.HealthPercent <= 8);
 
@@ -65,7 +65,7 @@ namespace ProtectionWarriorBot
 
                 TryUseAbility(ShieldBash, 10, target.IsCasting && target.Mana > 0);
 
-                TryUseAbility(Rend, 10, (!target.HasDebuff(Rend) && target.HealthPercent > 50 && (target.CreatureType != CreatureType.Elemental && target.CreatureType != CreatureType.Undead)));
+                TryUseAbility(Rend, 10, ProtectionWarriorRotation.ShouldRend(target.HealthPercent, target.HasDebuff(Rend), target.CreatureType));
 
                 TryUseAbility(BattleShout, 10, !player.HasBuff(BattleShout));
 

@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="BuffSelfState.cs" />
     <Compile Include="CombatState.cs" />
+    <Compile Include="AfflictionWarlockRotation.cs" />
     <Compile Include="MoveToTargetState.cs" />
     <Compile Include="PowerlevelCombatState.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

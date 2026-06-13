@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="BackstabRogueBot.cs" />
     <Compile Include="CombatState.cs" />
+    <Compile Include="BackstabRogueRotation.cs" />
     <Compile Include="MoveToTargetState.cs" />
     <Compile Include="PowerlevelCombatState.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

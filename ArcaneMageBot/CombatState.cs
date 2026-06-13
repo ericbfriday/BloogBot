@@ -53,8 +53,7 @@ namespace ArcaneMageBot
                 return;
 
             var hasWand = Inventory.GetEquippedItem(EquipSlot.Ranged) != null;
-            var useWand = hasWand && player.ManaPercent <= 10 && !player.IsCasting && !player.IsChanneling;
-            if (useWand)
+            if (ArcaneMageRotation.ShouldUseWand(hasWand, player.ManaPercent, player.IsCasting, player.IsChanneling))
                 player.LuaCall(WandLuaScript);
 
             TryCastSpell(PresenceOfMind, 0, 50, target.HealthPercent > 80);
@@ -63,15 +62,15 @@ namespace ArcaneMageBot
 
             TryCastSpell(Counterspell, 0, 29, target.Mana > 0 && target.IsCasting);
 
-            TryCastSpell(ManaShield, 0, 50, (!player.HasBuff(ManaShield) && player.HealthPercent < 20));
+            TryCastSpell(ManaShield, 0, 50, ArcaneMageRotation.ShouldManaShield(player.HasBuff(ManaShield), player.HealthPercent));
 
             TryCastSpell(FireBlast, 0, 19, !player.HasBuff(Clearcasting));
 
             TryCastSpell(FrostNova, 0, 10, !ObjectManager.Units.Any(u => u.Guid != target.Guid && u.Health > 0 && u.Position.DistanceTo(player.Position) < 15), callback: FrostNovaCallback);
 
-            TryCastSpell(Fireball, 0, 34, player.Level < 15 || player.HasBuff(PresenceOfMind));
+            TryCastSpell(Fireball, 0, 34, ArcaneMageRotation.ShouldFireball(player.Level, player.HasBuff(PresenceOfMind)));
 
-            TryCastSpell(ArcaneMissiles, 0, 29, player.Level >= 15);
+            TryCastSpell(ArcaneMissiles, 0, 29, ArcaneMageRotation.ShouldArcaneMissiles(player.Level));
         }
 
         Action FrostNovaCallback => () =>
