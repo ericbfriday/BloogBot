@@ -55,7 +55,7 @@ namespace RetributionPaladinBot
             if (base.Update())
                 return;
 
-            TryCastSpell(Purify, player.IsPoisoned || player.IsDiseased, castOnSelf: true);
+            TryCastSpell(Purify, ShouldCastPurify(), castOnSelf: true);
 
             var aura = RetributionPaladinCombatRotation.SelectAura(
                 player.KnowsSpell(DevotionAura),
@@ -102,6 +102,16 @@ namespace RetributionPaladinBot
                     player.ManaPercent,
                     target.HealthPercent));
             }
+        }
+
+        bool ShouldCastPurify()
+        {
+            if (!player.KnowsSpell(Purify) || !player.IsSpellReady(Purify) || player.Mana < player.GetManaCost(Purify))
+                return false;
+
+            return player.GetDebuffs(LuaTarget.Player).Any(debuff =>
+                debuff.Type == EffectType.Poison ||
+                debuff.Type == EffectType.Disease);
         }
     }
 }

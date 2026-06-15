@@ -8,6 +8,7 @@ namespace BloogBot.Game.Objects
     public class WoWUnit : WoWObject
     {
         static readonly string[] ImmobilizedSpellText = { "Immobilized" };
+        const int MaxAuraCount = 64;
 
         public WoWUnit() { }
 
@@ -164,31 +165,11 @@ namespace BloogBot.Game.Objects
         {
             get
             {
-                if (TryGetLuaAuras(isHarmful: false, out var luaBuffs))
-                    return luaBuffs;
-
                 // TODO: figure out what's going on here. WotLK seems to store buffs at a static offset from the Player Pointer,
                 // but TBC seems to store them as a Descriptor
                 if (ClientHelper.ClientVersion == ClientVersion.WotLK)
                 {
-                    var count = Functions.GetAuraCount(Pointer);
-                    var buffs = new List<Spell>();
-                    for (var i = 0; i < count; i++)
-                    {
-                        var buffPtr = Functions.GetAuraPointer(Pointer, i);
-
-                        var spellId = MemoryManager.ReadInt(buffPtr + 0x8);
-                        if (spellId > 0) // some weird invisible auras exist?
-                        {
-                            var flags = (AuraFlags)MemoryManager.ReadInt(buffPtr + 0x10);
-                            if (!flags.HasFlag(AuraFlags.Harmful))
-                            {
-                                buffs.Add(GetSpellById(spellId));
-                            }
-                        }
-                        
-                    }
-                    return buffs;
+                    return GetWotlkAuras(isHarmful: false);
                 }
                 else
                 {
@@ -210,30 +191,11 @@ namespace BloogBot.Game.Objects
         {
             get
             {
-                if (TryGetLuaAuras(isHarmful: true, out var luaDebuffs))
-                    return luaDebuffs;
-
                 // TODO: figure out what's going on here. WotLK seems to store buffs at a static offset from the Player Pointer,
                 // but TBC seems to store them as a Descriptor
                 if (ClientHelper.ClientVersion == ClientVersion.WotLK)
                 {
-                    var count = Functions.GetAuraCount(Pointer);
-                    var buffs = new List<Spell>();
-                    for (var i = 0; i < count; i++)
-                    {
-                        var buffPtr = Functions.GetAuraPointer(Pointer, i);
-
-                        var spellId = MemoryManager.ReadInt(buffPtr + 0x8);
-                        if (spellId > 0) // some weird invisible auras exist?
-                        {
-                            var flags = (AuraFlags)MemoryManager.ReadInt(buffPtr + 0x10);
-                            if (flags.HasFlag(AuraFlags.Harmful))
-                            {
-                                buffs.Add(GetSpellById(spellId));
-                            }
-                        }
-                    }
-                    return buffs;
+                    return GetWotlkAuras(isHarmful: true);
                 }
                 else if (ClientHelper.ClientVersion == ClientVersion.TBC)
                 {
@@ -262,6 +224,35 @@ namespace BloogBot.Game.Objects
                     return debuffs;
                 }
             }
+        }
+
+        IEnumerable<Spell> GetWotlkAuras(bool isHarmful)
+        {
+            var auras = new List<Spell>();
+            if (Pointer == IntPtr.Zero)
+                return auras;
+
+            var count = Functions.GetAuraCount(Pointer);
+            if (count <= 0)
+                return auras;
+
+            count = Math.Min(count, MaxAuraCount);
+            for (var i = 0; i < count; i++)
+            {
+                var auraPtr = Functions.GetAuraPointer(Pointer, i);
+                if (auraPtr == IntPtr.Zero)
+                    continue;
+
+                var spellId = MemoryManager.ReadInt(auraPtr + 0x8);
+                if (spellId <= 0)
+                    continue;
+
+                var flags = (AuraFlags)MemoryManager.ReadInt(auraPtr + 0x10);
+                if (flags.HasFlag(AuraFlags.Harmful) == isHarmful)
+                    auras.Add(GetSpellById(spellId));
+            }
+
+            return auras;
         }
 
         public IEnumerable<SpellEffect> GetDebuffs(LuaTarget target)
@@ -317,44 +308,6 @@ namespace BloogBot.Game.Objects
             {
                 return Debuffs.Any(d => ImmobilizedSpellText.Any(s => d.Description.Contains(s) || d.Tooltip.Contains(s)));
             }
-        }
-
-        bool TryGetLuaAuras(bool isHarmful, out IEnumerable<Spell> spells)
-        {
-            spells = null;
-
-            if (ClientHelper.ClientVersion != ClientVersion.WotLK || ObjectManager.Player == null)
-                return false;
-
-            LuaTarget? luaTarget = null;
-            if (Guid == ObjectManager.Player.Guid)
-                luaTarget = LuaTarget.Player;
-            else if (Guid == ObjectManager.Player.TargetGuid)
-                luaTarget = LuaTarget.Target;
-
-            if (!luaTarget.HasValue)
-                return false;
-
-            var auraNames = GetAuraNames(luaTarget.Value, isHarmful);
-            spells = auraNames.Select(name => new Spell(0, 0, name, string.Empty, string.Empty)).ToList();
-            return true;
-        }
-
-        IEnumerable<string> GetAuraNames(LuaTarget target, bool isHarmful)
-        {
-            var auraNames = new List<string>();
-            var auraFunction = isHarmful ? "UnitDebuff" : "UnitBuff";
-
-            for (var i = 1; i <= 40; i++)
-            {
-                var result = LuaCallWithResults("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10} = " + auraFunction + "('" + target.ToString().ToLower() + "', " + i + ")");
-                if (result.Length == 0 || string.IsNullOrEmpty(result[0]))
-                    break;
-
-                auraNames.Add(result[0]);
-            }
-
-            return auraNames;
         }
     }
 }
