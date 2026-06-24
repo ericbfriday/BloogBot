@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace BloogBotTests
@@ -30,6 +31,37 @@ namespace BloogBotTests
             // if the Navigation library fails to build a path, it will just return the start and end points in an array of length 2.
             // here we assert that the result path length is greater than 2 which indicates pathfinding was successful.
             Assert.IsTrue(path.Length > 2);
+        }
+
+        [TestMethod]
+        public void MissingMmapFileFallsBackWithoutNativeAssert()
+        {
+            const uint missingMmapMapId = 998;
+            var mmapsDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mmaps");
+            Directory.CreateDirectory(mmapsDirectory);
+
+            var tilePath = Path.Combine(mmapsDirectory, "9980101.mmtile");
+            var mmapPath = Path.Combine(mmapsDirectory, "998.mmap");
+            File.WriteAllBytes(tilePath, new byte[] { 0 });
+            if (File.Exists(mmapPath))
+                File.Delete(mmapPath);
+
+            try
+            {
+                var start = new Position(1f, 2f, 3f);
+                var end = new Position(4f, 5f, 6f);
+
+                var nextWaypoint = Navigation.GetNextWaypoint(missingMmapMapId, start, end, false);
+
+                Assert.AreEqual(end.X, nextWaypoint.X);
+                Assert.AreEqual(end.Y, nextWaypoint.Y);
+                Assert.AreEqual(end.Z, nextWaypoint.Z);
+            }
+            finally
+            {
+                if (File.Exists(tilePath))
+                    File.Delete(tilePath);
+            }
         }
 
         // this test mocks the result of Navigation.CalculatePath by manually building an array of Positions. this can be used, for example, to

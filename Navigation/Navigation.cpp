@@ -63,7 +63,14 @@ void Navigation::InitializeMapsForContinent(MMAP::MMapManager* manager, unsigned
 {
     if (!manager->zoneMap.contains(mapId))
     {
-        for (auto& p : std::filesystem::directory_iterator(Navigation::GetMmapsPath()))
+        string mmapsPath = Navigation::GetMmapsPath();
+        if (!std::filesystem::exists(mmapsPath) || !std::filesystem::is_directory(mmapsPath))
+        {
+            manager->zoneMap.insert(std::pair<unsigned int, bool>(mapId, true));
+            return;
+        }
+
+        for (auto& p : std::filesystem::directory_iterator(mmapsPath))
         {
             string path = p.path().string();
             string extension = path.substr(path.find_last_of(".") + 1);

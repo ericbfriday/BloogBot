@@ -173,9 +173,14 @@ namespace MMAP
 		string fileName = "";
 		getMapName(mapId, fileName);
 		FILE* file = fopen(fileName.c_str(), "rb");
+		if (file == NULL)
+			return false;
+
 		dtNavMeshParams params;
 		size_t file_read = fread(&params, sizeof(dtNavMeshParams), 1, file);
 		fclose(file);
+		if (file_read != 1)
+			return false;
 
 		dtNavMesh* mesh = dtAllocNavMesh();
 		dtStatus dtResult = mesh->init(&params);
@@ -199,9 +204,14 @@ namespace MMAP
 
 	bool MMapManager::loadMap(unsigned int mapId, int x, int y)
 	{
-		loadMapData(mapId);
+		if (!loadMapData(mapId))
+			return false;
 
-		MMapData* mmap = loadedMMaps[mapId];
+		MMapDataSet::iterator mmapIter = loadedMMaps.find(mapId);
+		if (mmapIter == loadedMMaps.end() || mmapIter->second == NULL)
+			return false;
+
+		MMapData* mmap = mmapIter->second;
 
 		unsigned int packedGridPos = packTileID(x, y);
 		if (mmap->mmapLoadedTiles.find(packedGridPos) != mmap->mmapLoadedTiles.end())
@@ -211,11 +221,35 @@ namespace MMAP
 		getTileName(mapId, x, y, fileName);
 
 		FILE* file = fopen(fileName.c_str(), "rb");
+		if (file == NULL)
+			return false;
+
 		MmapTileHeader fileHeader;
 		size_t file_read = fread(&fileHeader, sizeof(MmapTileHeader), 1, file);
+		if (file_read != 1 ||
+			fileHeader.mmapMagic != MMAP_MAGIC ||
+			fileHeader.dtVersion != DT_NAVMESH_VERSION ||
+			fileHeader.mmapVersion != MMAP_VERSION ||
+			fileHeader.size == 0)
+		{
+			fclose(file);
+			return false;
+		}
+
 		unsigned char* data = (unsigned char*)dtAlloc(fileHeader.size, DT_ALLOC_PERM);
+		if (data == NULL)
+		{
+			fclose(file);
+			return false;
+		}
+
 		size_t result = fread(data, fileHeader.size, 1, file);
 		fclose(file);
+		if (result != 1)
+		{
+			dtFree(data);
+			return false;
+		}
 
 		dtMeshHeader* header = (dtMeshHeader*)data;
 		dtTileRef tileRef = 0;
