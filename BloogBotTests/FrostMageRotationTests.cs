@@ -7,12 +7,12 @@ namespace BloogBotTests
     public class FrostMageRotationTests
     {
         [TestMethod]
-        public void NukeSelectionLeapfrogsByLevel()
+        public void NukeSelectionUsesFrostboltAsSoonAsKnown()
         {
             Assert.AreEqual(FrostMageRotation.Fireball, FrostMageRotation.SelectNuke(false, 60));
             Assert.AreEqual(FrostMageRotation.Fireball, FrostMageRotation.SelectNuke(true, 3));
             Assert.AreEqual(FrostMageRotation.Frostbolt, FrostMageRotation.SelectNuke(true, 4));
-            Assert.AreEqual(FrostMageRotation.Fireball, FrostMageRotation.SelectNuke(true, 6));
+            Assert.AreEqual(FrostMageRotation.Frostbolt, FrostMageRotation.SelectNuke(true, 6));
             Assert.AreEqual(FrostMageRotation.Frostbolt, FrostMageRotation.SelectNuke(true, 8));
             Assert.AreEqual(FrostMageRotation.Frostbolt, FrostMageRotation.SelectNuke(true, 60));
         }
@@ -80,6 +80,43 @@ namespace BloogBotTests
             Assert.IsFalse(FrostMageRotation.ShouldFrostNova(false, 50, 100, false, false));
             Assert.IsFalse(FrostMageRotation.ShouldFrostNova(true, 20, 30, false, false));
             Assert.IsTrue(FrostMageRotation.ShouldFrostNova(true, 20, 29, false, false));
+        }
+
+        [TestMethod]
+        public void ShatterSpendersRequireFrozenTargetOrFingersOfFrost()
+        {
+            Assert.IsTrue(FrostMageRotation.ShouldUseShatterSpender(true, false));
+            Assert.IsTrue(FrostMageRotation.ShouldUseShatterSpender(false, true));
+            Assert.IsFalse(FrostMageRotation.ShouldUseShatterSpender(false, false));
+        }
+
+        [TestMethod]
+        public void WaterElementalIsSavedForMeaningfulFights()
+        {
+            Assert.IsTrue(FrostMageRotation.ShouldSummonWaterElemental(false, 80, 1));
+            Assert.IsTrue(FrostMageRotation.ShouldSummonWaterElemental(false, 20, 2));
+            Assert.IsFalse(FrostMageRotation.ShouldSummonWaterElemental(true, 80, 2));
+            Assert.IsFalse(FrostMageRotation.ShouldSummonWaterElemental(false, 20, 1));
+        }
+
+        [TestMethod]
+        public void IcyVeinsIsUsedForPacksOrHighValueTargets()
+        {
+            Assert.IsTrue(FrostMageRotation.ShouldUseIcyVeins(2, false, 20));
+            Assert.IsTrue(FrostMageRotation.ShouldUseIcyVeins(1, true, 20));
+            Assert.IsTrue(FrostMageRotation.ShouldUseIcyVeins(1, false, 85));
+            Assert.IsFalse(FrostMageRotation.ShouldUseIcyVeins(1, false, 20));
+        }
+
+        [TestMethod]
+        public void ColdSnapIsSavedForLostControlOrMajorCooldownReuse()
+        {
+            Assert.IsTrue(FrostMageRotation.ShouldUseColdSnap(2, true, false, true, true, true, true, 50, 80));
+            Assert.IsTrue(FrostMageRotation.ShouldUseColdSnap(1, true, true, true, false, true, true, 90, 80));
+            Assert.IsTrue(FrostMageRotation.ShouldUseColdSnap(1, true, true, true, true, true, false, 90, 80));
+            Assert.IsFalse(FrostMageRotation.ShouldUseColdSnap(2, true, true, true, true, true, true, 50, 80));
+            Assert.IsFalse(FrostMageRotation.ShouldUseColdSnap(1, true, true, true, false, true, true, 20, 80));
+            Assert.IsFalse(FrostMageRotation.ShouldUseColdSnap(1, true, true, false, false, false, false, 90, 80));
         }
     }
 }

@@ -12,15 +12,10 @@ namespace FrostMageBot
         static readonly string[] FireWardTargets = { "Fire", "Flame", "Infernal", "Searing", "Hellcaller", "Dragon", "Whelp" };
         static readonly string[] FrostWardTargets = { "Ice", "Frost" };
 
-        // Frostbolt and Fireball ranks leapfrog each other at low levels;
-        // from level 8 onward Frostbolt is always the stronger nuke.
+        // The WotLK leveling rotation is Frostbolt-first once trained.
         internal static string SelectNuke(bool knowsFrostbolt, int playerLevel)
         {
             if (!knowsFrostbolt)
-                return Fireball;
-            if (playerLevel >= 8)
-                return Frostbolt;
-            if (playerLevel >= 6)
                 return Fireball;
             if (playerLevel >= 4)
                 return Frostbolt;
@@ -73,6 +68,43 @@ namespace FrostMageBot
                 playerHealthPercent < 95 &&
                 manaPercent > 40 &&
                 (targetHealthPercent > 20 || playerHealthPercent < 10)));
+
+        internal static bool ShouldUseShatterSpender(
+            bool targetIsFrozen,
+            bool hasFingersOfFrost) =>
+            targetIsFrozen || hasFingersOfFrost;
+
+        internal static bool ShouldSummonWaterElemental(
+            bool hasWaterElemental,
+            int targetHealthPercent,
+            int aggressorCount) =>
+            !hasWaterElemental &&
+            (targetHealthPercent >= 60 || aggressorCount > 1);
+
+        internal static bool ShouldUseIcyVeins(
+            int aggressorCount,
+            bool isHighValueTarget,
+            int targetHealthPercent) =>
+            targetHealthPercent >= 20 &&
+            (aggressorCount > 1 ||
+                isHighValueTarget ||
+                targetHealthPercent >= 80);
+
+        internal static bool ShouldUseColdSnap(
+            int aggressorCount,
+            bool knowsFrostNova,
+            bool frostNovaReady,
+            bool knowsIcyVeins,
+            bool icyVeinsReady,
+            bool knowsSummonWaterElemental,
+            bool summonWaterElementalReady,
+            int targetHealthPercent,
+            int playerHealthPercent) =>
+            playerHealthPercent > 30 &&
+            ((aggressorCount > 1 && knowsFrostNova && !frostNovaReady) ||
+                (targetHealthPercent >= 80 &&
+                    ((knowsIcyVeins && !icyVeinsReady) ||
+                        (knowsSummonWaterElemental && !summonWaterElementalReady))));
 
         // Root the target for a frost shatter combo, but never when it would
         // pull additional nearby mobs into the fight.
