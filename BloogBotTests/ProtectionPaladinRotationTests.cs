@@ -59,5 +59,58 @@ namespace BloogBotTests
             Assert.IsFalse(ProtectionPaladinRotation.ShouldSealOfRighteousness(false, false, true));
             Assert.IsFalse(ProtectionPaladinRotation.ShouldSealOfRighteousness(true, true, true));
         }
+
+        [TestMethod]
+        public void DivinePleaRefillsManaBelowHalf()
+        {
+            Assert.IsTrue(ProtectionPaladinRotation.ShouldDivinePlea(49));
+            Assert.IsFalse(ProtectionPaladinRotation.ShouldDivinePlea(50));
+        }
+
+        [TestMethod]
+        public void PurifyClearsPoisonOrDisease()
+        {
+            Assert.IsTrue(ProtectionPaladinRotation.ShouldPurify(true, false));
+            Assert.IsTrue(ProtectionPaladinRotation.ShouldPurify(false, true));
+            Assert.IsFalse(ProtectionPaladinRotation.ShouldPurify(false, false));
+        }
+
+        [TestMethod]
+        public void ExorcismOnlyHitsUndeadAndDemons()
+        {
+            Assert.IsTrue(ProtectionPaladinRotation.ShouldExorcism(true));
+            Assert.IsFalse(ProtectionPaladinRotation.ShouldExorcism(false));
+        }
+
+        [TestMethod]
+        public void HammerOfJusticeIsHeldForHumanoidExecutes()
+        {
+            Assert.IsTrue(ProtectionPaladinRotation.ShouldHammerOfJustice(false, 100));
+            Assert.IsFalse(ProtectionPaladinRotation.ShouldHammerOfJustice(true, 20));
+            Assert.IsTrue(ProtectionPaladinRotation.ShouldHammerOfJustice(true, 19));
+        }
+
+        [TestMethod]
+        public void ConsecrationNeedsMultipleAttackers()
+        {
+            Assert.IsTrue(ProtectionPaladinRotation.ShouldConsecration(2));
+            Assert.IsFalse(ProtectionPaladinRotation.ShouldConsecration(1));
+        }
+
+        [TestMethod]
+        public void SealOfTheCrusaderIsKeptUpUntilJudged()
+        {
+            Assert.IsTrue(ProtectionPaladinRotation.ShouldSealOfTheCrusader(false, false));
+            Assert.IsFalse(ProtectionPaladinRotation.ShouldSealOfTheCrusader(true, false));
+            Assert.IsFalse(ProtectionPaladinRotation.ShouldSealOfTheCrusader(false, true));
+        }
+
+        [TestMethod]
+        public void HolyShieldIsHeldForHealthyTargets()
+        {
+            Assert.IsTrue(ProtectionPaladinRotation.ShouldHolyShield(false, 51));
+            Assert.IsFalse(ProtectionPaladinRotation.ShouldHolyShield(true, 51));
+            Assert.IsFalse(ProtectionPaladinRotation.ShouldHolyShield(false, 50));
+        }
     }
 }

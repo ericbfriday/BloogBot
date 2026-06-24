@@ -87,6 +87,10 @@ namespace BalanceDruidBot
             if (base.Update())
                 return;
 
+            // Don't attempt spells without line of sight. Strafing is handled in CombatStateBase.
+            if (TriggerLosRecovery())
+                return;
+
             // if we get an add, root it with Entangling Roots
             if (ObjectManager.Aggressors.Count() == 2 && secondaryTarget == null)
                 secondaryTarget = ObjectManager.Aggressors.Single(u => u.Guid != target.Guid);
@@ -95,25 +99,33 @@ namespace BalanceDruidBot
             {
                 player.SetTarget(secondaryTarget.Guid);
                 player.Target = secondaryTarget;
-                TryCastSpell(EntanglingRoots, 0, 30, !secondaryTarget.HasDebuff(EntanglingRoots), EntanglingRootsCallback);
+                if (TryCastRotationSpell(EntanglingRoots, 0, 30, !secondaryTarget.HasDebuff(EntanglingRoots), EntanglingRootsCallback))
+                    return;
             }
 
-            TryCastSpell(MoonkinForm, !player.HasBuff(MoonkinForm));
+            if (TryCastRotationSpell(MoonkinForm, !player.HasBuff(MoonkinForm)))
+                return;
 
-            TryCastSpell(Innervate, player.ManaPercent < 10, castOnSelf: true);
+            if (TryCastRotationSpell(Innervate, BalanceDruidRotation.ShouldInnervate(player.ManaPercent), castOnSelf: true))
+                return;
 
-            TryCastSpell(RemoveCurse, 0, int.MaxValue, BalanceDruidRotation.ShouldCleanseSelf(player.IsCursed, player.HasBuff(MoonkinForm)), castOnSelf: true);
+            if (TryCastRotationSpell(RemoveCurse, 0, int.MaxValue, BalanceDruidRotation.ShouldCleanseSelf(player.IsCursed, player.HasBuff(MoonkinForm)), castOnSelf: true))
+                return;
 
-            TryCastSpell(AbolishPoison, 0, int.MaxValue, BalanceDruidRotation.ShouldCleanseSelf(player.IsPoisoned, player.HasBuff(MoonkinForm)), castOnSelf: true);
+            if (TryCastRotationSpell(AbolishPoison, 0, int.MaxValue, BalanceDruidRotation.ShouldCleanseSelf(player.IsPoisoned, player.HasBuff(MoonkinForm)), castOnSelf: true))
+                return;
 
-            TryCastSpell(InsectSwarm, 0, 30, BalanceDruidRotation.ShouldInsectSwarm(
+            if (TryCastRotationSpell(InsectSwarm, 0, 30, BalanceDruidRotation.ShouldInsectSwarm(
                 target.HasDebuff(InsectSwarm),
                 target.HealthPercent,
-                BalanceDruidRotation.IsNatureImmune(target.Name)));
+                BalanceDruidRotation.IsNatureImmune(target.Name))))
+                return;
 
-            TryCastSpell(Moonfire, 0, 30, !target.HasDebuff(Moonfire));
+            if (TryCastRotationSpell(Moonfire, 0, 30, BalanceDruidRotation.ShouldMoonfire(target.HasDebuff(Moonfire))))
+                return;
 
-            TryCastSpell(Wrath, 0, 30, !BalanceDruidRotation.IsNatureImmune(target.Name));
+            if (TryCastRotationSpell(Wrath, 0, 30, BalanceDruidRotation.ShouldWrath(BalanceDruidRotation.IsNatureImmune(target.Name))))
+                return;
         }
     }
 }

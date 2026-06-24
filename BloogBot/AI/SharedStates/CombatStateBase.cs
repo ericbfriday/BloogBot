@@ -335,6 +335,111 @@ namespace BloogBot.AI.SharedStates
             return true;
         }
 
+        // Rage/energy rotation-ability helpers: the physical-strike counterpart to
+        // TryCastRotationSpell. They mirror TryUseAbility / TryUseAbilityById gating but
+        // report whether the ability fired, so melee/hybrid rotations can be written as
+        // "if (TryUseRotationAbility(...)) return;" priority chains.
+        protected bool TryUseRotationAbility(
+            string name,
+            int requiredResource = 0,
+            int minRange = 0,
+            int maxRange = int.MaxValue,
+            bool condition = true,
+            Action callback = null)
+        {
+            if (!CanUseRotationAbility(
+                player.KnowsSpell(name),
+                player.IsSpellReady(name),
+                ResolveAbilityResource(),
+                requiredResource,
+                player.Position.DistanceTo(target.Position),
+                minRange,
+                maxRange,
+                condition,
+                player.IsStunned,
+                player.IsCasting,
+                player.IsChanneling,
+                player.Class == Class.Warrior))
+                return false;
+
+            if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
+                player.LuaCall($"CastSpellByName('{name}')");
+            else
+                player.CastSpell(name, target.Guid);
+
+            callback?.Invoke();
+            return true;
+        }
+
+        protected bool TryUseRotationAbilityById(
+            string name,
+            int id,
+            int requiredResource = 0,
+            bool condition = true,
+            Action callback = null)
+        {
+            if (!CanUseRotationAbility(
+                player.KnowsSpell(name),
+                player.IsSpellReady(name),
+                ResolveAbilityResource(),
+                requiredResource,
+                player.Position.DistanceTo(target.Position),
+                0,
+                int.MaxValue,
+                condition,
+                player.IsStunned,
+                player.IsCasting,
+                player.IsChanneling,
+                player.Class == Class.Warrior))
+                return false;
+
+            if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
+                player.LuaCall($"CastSpell({id}, 'spell')");
+            else
+                player.CastSpell(name, target.Guid);
+
+            callback?.Invoke();
+            return true;
+        }
+
+        // Resolves the rage/energy pool exactly as TryUseAbility does today
+        // (Rage for warriors, Energy for rogues, otherwise no resource gate).
+        int ResolveAbilityResource()
+        {
+            if (player.Class == Class.Warrior)
+                return player.Rage;
+            if (player.Class == Class.Rogue)
+                return player.Energy;
+            return 0;
+        }
+
+        // Pure gating predicate for rage/energy abilities — the mock-free test surface.
+        // Warriors keep the casting-while-moving carve-out; everyone else is blocked mid-cast.
+        internal static bool CanUseRotationAbility(
+            bool knowsSpell,
+            bool isSpellReady,
+            int playerResource,
+            int requiredResource,
+            double distanceToTarget,
+            int minRange,
+            int maxRange,
+            bool condition,
+            bool isStunned,
+            bool isCasting,
+            bool isChanneling,
+            bool isWarrior)
+        {
+            if (!condition || isStunned)
+                return false;
+            if ((isCasting || isChanneling) && !isWarrior)
+                return false;
+            return knowsSpell &&
+                isSpellReady &&
+                playerResource >= requiredResource &&
+                distanceToTarget >= minRange &&
+                distanceToTarget <= maxRange;
+        }
+
         protected bool CanCastRotationSpell(string name, int minRange, int maxRange, bool condition)
         {
             if (!condition || player.IsStunned || player.IsCasting || player.IsChanneling)

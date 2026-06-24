@@ -37,5 +37,35 @@ namespace BloogBotTests
             Assert.IsFalse(ArcaneMageRotation.ShouldArcaneMissiles(14));
             Assert.IsTrue(ArcaneMageRotation.ShouldArcaneMissiles(15));
         }
+
+        [TestMethod]
+        public void BurstCooldownsOnlyOnHealthyTargets()
+        {
+            Assert.IsTrue(ArcaneMageRotation.ShouldUseBurstCooldown(81));
+            Assert.IsFalse(ArcaneMageRotation.ShouldUseBurstCooldown(80));
+            Assert.IsFalse(ArcaneMageRotation.ShouldUseBurstCooldown(20));
+        }
+
+        [TestMethod]
+        public void CounterspellOnlyAgainstCastingManaUsers()
+        {
+            Assert.IsTrue(ArcaneMageRotation.ShouldCounterspell(100, true));
+            Assert.IsFalse(ArcaneMageRotation.ShouldCounterspell(0, true));
+            Assert.IsFalse(ArcaneMageRotation.ShouldCounterspell(100, false));
+        }
+
+        [TestMethod]
+        public void FireBlastIsHeldWhileClearcastingIsUp()
+        {
+            Assert.IsTrue(ArcaneMageRotation.ShouldFireBlast(false));
+            Assert.IsFalse(ArcaneMageRotation.ShouldFireBlast(true));
+        }
+
+        [TestMethod]
+        public void FrostNovaIsHeldWhenOtherUnitsAreNearby()
+        {
+            Assert.IsTrue(ArcaneMageRotation.ShouldFrostNova(false));
+            Assert.IsFalse(ArcaneMageRotation.ShouldFrostNova(true));
+        }
     }
 }

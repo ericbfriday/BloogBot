@@ -38,6 +38,31 @@ namespace ProtectionPaladinBot
             hasSealOfTheCrusader ||
             (hasSealOfRighteousness && (manaPercent >= 95 || targetHealthPercent <= 3));
 
+        // Refill mana with Divine Plea once we dip below half.
+        internal static bool ShouldDivinePlea(int manaPercent) =>
+            manaPercent < 50;
+
+        internal static bool ShouldPurify(bool isPoisoned, bool isDiseased) =>
+            isPoisoned || isDiseased;
+
+        // Exorcism only bites undead and demons.
+        internal static bool ShouldExorcism(bool targetIsUndeadOrDemon) =>
+            targetIsUndeadOrDemon;
+
+        // Stun freely against non-humanoids; against humanoids save it for the execute.
+        internal static bool ShouldHammerOfJustice(bool targetIsHumanoid, int targetHealthPercent) =>
+            !targetIsHumanoid || targetHealthPercent < 20;
+
+        // Consecration is only worth the mana when more than one mob is on us.
+        internal static bool ShouldConsecration(int aggressorCount) =>
+            aggressorCount > 1;
+
+        internal static bool ShouldSealOfTheCrusader(bool hasSealOfTheCrusader, bool targetHasJudgementOfTheCrusader) =>
+            !hasSealOfTheCrusader && !targetHasJudgementOfTheCrusader;
+
+        internal static bool ShouldHolyShield(bool hasHolyShield, int targetHealthPercent) =>
+            !hasHolyShield && targetHealthPercent > 50;
+
         internal static bool ShouldSealOfRighteousness(
             bool hasSealOfRighteousness,
             bool targetHasJudgementOfTheCrusader,

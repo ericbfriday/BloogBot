@@ -93,27 +93,40 @@ namespace BalanceDruidBot
             else
                 player.StopAllMovement();
 
+            // Don't attempt spells without line of sight; close distance until we have it.
+            if (!player.InLosWith(target.Position))
+            {
+                var nextWaypoint = Navigation.GetNextWaypoint(ObjectManager.MapId, player.Position, target.Position, false);
+                player.MoveToward(nextWaypoint);
+                return;
+            }
+
             // combat rotation
-            TryCastSpell(Regrowth, 0, 29, powerlevelTarget.HealthPercent < 40);
+            if (TryCastSpell(Regrowth, 0, 29, BalanceDruidRotation.ShouldRegrowth(powerlevelTarget.HealthPercent)))
+                return;
 
             if (!powerlevelTarget.HasBuff(MarkOfTheWild))
             {
                 player.SetTarget(powerlevelTarget.Guid);
-                TryCastSpell(MarkOfTheWild, 0, 29);
+                if (TryCastSpell(MarkOfTheWild, 0, 29))
+                    return;
             }
-            
+
             if (!powerlevelTarget.HasBuff(Thorns))
             {
                 player.SetTarget(powerlevelTarget.Guid);
-                TryCastSpell(Thorns, 0, 29);
+                if (TryCastSpell(Thorns, 0, 29))
+                    return;
             }
 
-            TryCastSpell(Moonfire, 0, 29, !target.HasDebuff(Moonfire));
+            if (TryCastSpell(Moonfire, 0, 29, BalanceDruidRotation.ShouldMoonfire(target.HasDebuff(Moonfire))))
+                return;
 
-            TryCastSpell(Wrath, 0, spellRange);
+            if (TryCastSpell(Wrath, 0, spellRange))
+                return;
         }
 
-        void TryCastSpell(string name, int minRange, int maxRange, bool condition = true, Action callback = null, bool castOnSelf = false)
+        bool TryCastSpell(string name, int minRange, int maxRange, bool condition = true, Action callback = null, bool castOnSelf = false)
         {
             var distanceToTarget = player.Position.DistanceTo(target.Position);
 
@@ -122,7 +135,10 @@ namespace BalanceDruidBot
                 var castOnSelfString = castOnSelf ? ",1" : "";
                 player.LuaCall($"CastSpellByName(\"{name}\"{castOnSelfString})");
                 callback?.Invoke();
+                return true;
             }
+
+            return false;
         }
 
         void OnErrorMessageCallback(object sender, OnUiMessageArgs e)

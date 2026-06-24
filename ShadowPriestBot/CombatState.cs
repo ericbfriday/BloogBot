@@ -56,41 +56,66 @@ namespace ShadowPriestBot
             if (base.Update())
                 return;
 
+            // Don't attempt spells without line of sight. Strafing is handled in CombatStateBase.
+            if (TriggerLosRecovery())
+                return;
+
             var hasWand = Inventory.GetEquippedItem(EquipSlot.Ranged) != null;
-            var useWand = hasWand && !player.IsCasting && !player.IsChanneling && (player.ManaPercent <= 10 || target.CreatureType == CreatureType.Totem || target.HealthPercent <= 10);
-            if (useWand)
-                player.LuaCall(WandLuaScript);
-            else
+            if (ShadowPriestPowerlevelCombatRotation.ShouldUseWand(
+                hasWand, player.IsCasting, player.IsChanneling, player.ManaPercent,
+                target.CreatureType == CreatureType.Totem, target.HealthPercent))
             {
-                var aggressors = ObjectManager.Aggressors;
-
-                TryCastSpell(ShadowForm, 0, int.MaxValue, !player.HasBuff(ShadowForm));
-
-                TryCastSpell(VampiricEmbrace, 0, 29, player.HealthPercent < 100 && !target.HasDebuff(VampiricEmbrace) && target.HealthPercent > 50);
-
-                var noNeutralsNearby = !ObjectManager.Units.Any(u => u.Guid != target.Guid && u.UnitReaction == UnitReaction.Neutral && u.Position.DistanceTo(player.Position) <= 10);
-                TryCastSpell(PsychicScream, 0, 7, (target.Position.DistanceTo(player.Position) < 8 && !player.HasBuff(PowerWordShield)) || ObjectManager.Aggressors.Count() > 1 && target.CreatureType != CreatureType.Elemental);
-
-                TryCastSpell(ShadowWordPain, 0, 29, target.HealthPercent > 70 && !target.HasDebuff(ShadowWordPain));
-
-                TryCastSpell(DispelMagic, 0, int.MaxValue, player.HasMagicDebuff, castOnSelf: true);
-
-                if (player.KnowsSpell(AbolishDisease))
-                    TryCastSpell(AbolishDisease, 0, int.MaxValue, player.IsDiseased && !player.HasBuff(ShadowForm), castOnSelf: true);
-                else if (player.KnowsSpell(CureDisease))
-                    TryCastSpell(CureDisease, 0, int.MaxValue, player.IsDiseased && !player.HasBuff(ShadowForm), castOnSelf: true);
-
-                TryCastSpell(InnerFire, 0, int.MaxValue, !player.HasBuff(InnerFire));
-
-                TryCastSpell(PowerWordShield, 0, int.MaxValue, !player.HasDebuff(WeakenedSoul) && !player.HasBuff(PowerWordShield) && (target.HealthPercent > 20 || player.HealthPercent < 10), castOnSelf: true);
-
-                TryCastSpell(MindBlast, 0, 29);
-
-                if (player.KnowsSpell(MindFlay) && target.Position.DistanceTo(player.Position) <= 19 && (!player.KnowsSpell(PowerWordShield) || player.HasBuff(PowerWordShield)))
-                    TryCastSpell(MindFlay, 0, 19);
-                else
-                    TryCastSpell(Smite, 0, 29, !player.HasBuff(ShadowForm));
+                player.LuaCall(WandLuaScript);
+                return;
             }
+
+            var distanceToTarget = target.Position.DistanceTo(player.Position);
+
+            if (TryCastNoTargetRotationSpell(ShadowForm, !player.HasBuff(ShadowForm)))
+                return;
+
+            if (TryCastRotationSpell(VampiricEmbrace, 0, 29, ShadowPriestPowerlevelCombatRotation.ShouldVampiricEmbrace(
+                player.HealthPercent, target.HasDebuff(VampiricEmbrace), target.HealthPercent)))
+                return;
+
+            if (TryCastRotationSpell(PsychicScream, 0, 7, ShadowPriestPowerlevelCombatRotation.ShouldPsychicScream(
+                distanceToTarget, player.HasBuff(PowerWordShield), ObjectManager.Aggressors.Count(), target.CreatureType == CreatureType.Elemental)))
+                return;
+
+            if (TryCastRotationSpell(ShadowWordPain, 0, 29, ShadowPriestPowerlevelCombatRotation.ShouldShadowWordPain(
+                target.HealthPercent, target.HasDebuff(ShadowWordPain))))
+                return;
+
+            if (TryCastRotationSpell(DispelMagic, 0, int.MaxValue, player.HasMagicDebuff, castOnSelf: true))
+                return;
+
+            var shouldCureDisease = ShadowPriestPowerlevelCombatRotation.ShouldCureDisease(player.IsDiseased, player.HasBuff(ShadowForm));
+            if (player.KnowsSpell(AbolishDisease))
+            {
+                if (TryCastRotationSpell(AbolishDisease, 0, int.MaxValue, shouldCureDisease, castOnSelf: true))
+                    return;
+            }
+            else if (TryCastRotationSpell(CureDisease, 0, int.MaxValue, shouldCureDisease, castOnSelf: true))
+                return;
+
+            if (TryCastNoTargetRotationSpell(InnerFire, !player.HasBuff(InnerFire)))
+                return;
+
+            if (TryCastRotationSpell(PowerWordShield, 0, int.MaxValue, ShadowPriestPowerlevelCombatRotation.ShouldPowerWordShield(
+                player.HasDebuff(WeakenedSoul), player.HasBuff(PowerWordShield), target.HealthPercent, player.HealthPercent), castOnSelf: true))
+                return;
+
+            if (TryCastRotationSpell(MindBlast, 0, 29))
+                return;
+
+            if (ShadowPriestPowerlevelCombatRotation.ShouldMindFlay(
+                player.KnowsSpell(MindFlay), distanceToTarget, player.KnowsSpell(PowerWordShield), player.HasBuff(PowerWordShield)))
+            {
+                if (TryCastRotationSpell(MindFlay, 0, 19))
+                    return;
+            }
+            else if (TryCastRotationSpell(Smite, 0, 29, !player.HasBuff(ShadowForm)))
+                return;
         }
     }
 }

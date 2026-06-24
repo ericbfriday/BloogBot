@@ -38,27 +38,35 @@ namespace CombatRogueBot
             if (base.Update())
                 return;
 
-            TryUseAbility(AdrenalineRush, 0, CombatRogueRotation.ShouldAdrenalineRush(ObjectManager.Aggressors.Count(), player.HealthPercent));
+            if (TryUseRotationAbility(AdrenalineRush, 0, condition: CombatRogueRotation.ShouldAdrenalineRush(ObjectManager.Aggressors.Count(), player.HealthPercent)))
+                return;
 
-            TryUseAbilityById(BloodFury, 3, 0, target.HealthPercent > 80);
+            if (TryUseRotationAbilityById(BloodFury, 3, 0, CombatRogueRotation.ShouldBloodFury(target.HealthPercent)))
+                return;
 
-            TryUseAbility(Evasion, 0, ObjectManager.Aggressors.Count() > 1);
+            if (TryUseRotationAbility(Evasion, 0, condition: CombatRogueRotation.ShouldEvasion(ObjectManager.Aggressors.Count())))
+                return;
 
-            TryUseAbility(BladeFlurry, 25, ObjectManager.Aggressors.Count() > 1);
+            if (TryUseRotationAbility(BladeFlurry, 25, condition: CombatRogueRotation.ShouldBladeFlurry(ObjectManager.Aggressors.Count())))
+                return;
 
-            TryUseAbility(SliceAndDice, 25, CombatRogueRotation.ShouldSliceAndDice(player.HasBuff(SliceAndDice), target.HealthPercent, player.ComboPoints));
+            if (TryUseRotationAbility(SliceAndDice, 25, condition: CombatRogueRotation.ShouldSliceAndDice(player.HasBuff(SliceAndDice), target.HealthPercent, player.ComboPoints)))
+                return;
 
-            TryUseAbility(Riposte, 10, player.CanRiposte);
+            if (TryUseRotationAbility(Riposte, 10, condition: player.CanRiposte))
+                return;
 
-            TryUseAbility(Kick, 25, ReadyToInterrupt(target));
+            if (TryUseRotationAbility(Kick, 25, condition: CombatRogueRotation.ShouldKickInterrupt(target.Mana, target.IsCasting, target.IsChanneling)))
+                return;
 
-            TryUseAbility(Gouge, 45, ReadyToInterrupt(target) && !player.IsSpellReady(Kick));
+            if (TryUseRotationAbility(Gouge, 45, condition: CombatRogueRotation.ShouldGougeInterrupt(target.Mana, target.IsCasting, target.IsChanneling, player.IsSpellReady(Kick))))
+                return;
 
-            TryUseAbility(Eviscerate, 35, CombatRogueRotation.IsReadyToEviscerate(target.HealthPercent, player.ComboPoints));
+            if (TryUseRotationAbility(Eviscerate, 35, condition: CombatRogueRotation.IsReadyToEviscerate(target.HealthPercent, player.ComboPoints)))
+                return;
 
-            TryUseAbility(SinisterStrike, 45, player.ComboPoints < 5);
+            if (TryUseRotationAbility(SinisterStrike, 45, condition: CombatRogueRotation.ShouldSinisterStrike(player.ComboPoints)))
+                return;
         }
-
-        bool ReadyToInterrupt(WoWUnit target) => CombatRogueRotation.ReadyToInterrupt(target.Mana, target.IsCasting, target.IsChanneling);
     }
 }

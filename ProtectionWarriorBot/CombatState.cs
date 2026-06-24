@@ -43,39 +43,42 @@ namespace ProtectionWarriorBot
             if (base.Update())
                 return;
 
-            TryUseAbility(Bloodrage, condition: target.HealthPercent > 50);
+            if (TryUseRotationAbility(Bloodrage, condition: target.HealthPercent > 50)) return;
 
-            if (ObjectManager.Aggressors.Count() >= 3)
+            var aggressorCount = ObjectManager.Aggressors.Count();
+            var targetHasDemoralizingShout = target.HasDebuff(DemoralizingShout);
+            var targetHasThunderClap = target.HasDebuff(ThunderClap);
+            var allAggressorsWithin10Yards = ObjectManager.Aggressors.All(a => a.Position.DistanceTo(player.Position) < 10);
+
+            if (TryUseRotationAbility(Retaliation, condition: ProtectionWarriorRotation.ShouldUseRetaliation(aggressorCount))) return;
+
+            if (ProtectionWarriorRotation.ShouldUseMultiTargetAbilities(aggressorCount, targetHasDemoralizingShout, targetHasThunderClap))
             {
-                TryUseAbility(Retaliation);
+                if (TryUseRotationAbility(DemoralizingShout, 10, condition: ProtectionWarriorRotation.ShouldUseDemoralizingShout(targetHasDemoralizingShout, allAggressorsWithin10Yards))) return;
+
+                if (TryUseRotationAbility(ThunderClap, 20, condition: ProtectionWarriorRotation.ShouldUseThunderClap(targetHasThunderClap, allAggressorsWithin10Yards))) return;
             }
-            if (ProtectionWarriorRotation.ShouldUseMultiTargetAbilities(ObjectManager.Aggressors.Count(), target.HasDebuff(DemoralizingShout), target.HasDebuff(ThunderClap)))
+            else if (ProtectionWarriorRotation.ShouldUseSingleTargetAbilities(aggressorCount, targetHasDemoralizingShout, targetHasThunderClap))
             {
-                TryUseAbility(DemoralizingShout, 10, !target.HasDebuff(DemoralizingShout) && ObjectManager.Aggressors.All(a => a.Position.DistanceTo(player.Position) < 10));
+                if (TryUseRotationAbility(LastStand, condition: ProtectionWarriorRotation.ShouldUseLastStand(player.HealthPercent))) return;
 
-                TryUseAbility(ThunderClap, 20, !target.HasDebuff(ThunderClap) && ObjectManager.Aggressors.All(a => a.Position.DistanceTo(player.Position) < 10));
-            }
-            else if (ProtectionWarriorRotation.ShouldUseSingleTargetAbilities(ObjectManager.Aggressors.Count(), target.HasDebuff(DemoralizingShout), target.HasDebuff(ThunderClap)))
-            {
-                TryUseAbility(LastStand, condition: player.HealthPercent <= 8);
+                if (TryUseRotationAbility(Overpower, 5, condition: player.CanOverpower)) return;
 
-                TryUseAbility(Overpower, 5, player.CanOverpower);
+                if (TryUseRotationAbility(Berserking, 5, condition: player.HealthPercent < 30)) return;
 
-                TryUseAbility(Berserking, 5, player.HealthPercent < 30);
+                if (TryUseRotationAbility(ShieldBash, 10, condition: ProtectionWarriorRotation.ShouldUseShieldBash(target.IsCasting, target.Mana))) return;
 
-                TryUseAbility(ShieldBash, 10, target.IsCasting && target.Mana > 0);
+                if (TryUseRotationAbility(Rend, 10, condition: ProtectionWarriorRotation.ShouldRend(target.HealthPercent, target.HasDebuff(Rend), target.CreatureType))) return;
 
-                TryUseAbility(Rend, 10, ProtectionWarriorRotation.ShouldRend(target.HealthPercent, target.HasDebuff(Rend), target.CreatureType));
+                if (TryUseRotationAbility(BattleShout, 10, condition: !player.HasBuff(BattleShout))) return;
 
-                TryUseAbility(BattleShout, 10, !player.HasBuff(BattleShout));
+                if (TryUseRotationAbility(ConcussionBlow, 15, condition: !target.IsStunned && target.HealthPercent > 40)) return;
 
-                TryUseAbility(ConcussionBlow, 15, !target.IsStunned && target.HealthPercent > 40);
+                if (TryUseRotationAbility(Execute, 20, condition: target.HealthPercent < 20)) return;
 
-                TryUseAbility(Execute, 20, target.HealthPercent < 20);
+                if (TryUseRotationAbility(ShieldSlam, 20, condition: ProtectionWarriorRotation.ShouldUseShieldSlam(target.HealthPercent))) return;
 
-                TryUseAbility(ShieldSlam, 20, target.HealthPercent > 30);
-
-                TryUseAbility(HeroicStrike, 40, target.HealthPercent > 40 && !player.IsCasting);
+                if (TryUseRotationAbility(HeroicStrike, 40, condition: target.HealthPercent > 40 && !player.IsCasting)) return;
             }
         }
     }

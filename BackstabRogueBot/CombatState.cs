@@ -136,37 +136,42 @@ namespace BackstabRogueBot
 
             // ----- COMBAT ROTATION -----
 
+            var readyToInterrupt = ReadyToInterrupt(target);
+            var ghostlyStrikeReady = player.IsSpellReady(GhostlyStrike);
+            var kickReady = player.IsSpellReady(Kick);
+            var aggressorCount = ObjectManager.Aggressors.Count();
+
             var readyToEviscerate = BackstabRogueRotation.IsReadyToEviscerate(target.HealthPercent, player.ComboPoints);
 
-            TryUseAbility(Eviscerate, 35, readyToEviscerate);
+            if (TryUseRotationAbility(Eviscerate, 35, condition: readyToEviscerate)) return;
 
-            TryUseAbility(SliceAndDice, 25, BackstabRogueRotation.ShouldSliceAndDice(player.HasBuff(SliceAndDice), target.HealthPercent, player.ComboPoints));
+            if (TryUseRotationAbility(SliceAndDice, 25, condition: BackstabRogueRotation.ShouldSliceAndDice(player.HasBuff(SliceAndDice), target.HealthPercent, player.ComboPoints))) return;
 
-            // TryUseAbility(ExposeArmor, 25, player.HasBuff(SliceAndDice) && target.HealthPercent > 50 && player.ComboPoints <= 2 && player.ComboPoints >= 1);
+            // if (TryUseRotationAbility(ExposeArmor, 25, condition: player.HasBuff(SliceAndDice) && target.HealthPercent > 50 && player.ComboPoints <= 2 && player.ComboPoints >= 1)) return;
 
-            var shouldUseComboBuilder = BackstabRogueRotation.ShouldUseComboBuilder(ReadyToInterrupt(target), player.ComboPoints, readyToEviscerate);
+            var shouldUseComboBuilder = BackstabRogueRotation.ShouldUseComboBuilder(readyToInterrupt, player.ComboPoints, readyToEviscerate);
 
-            TryUseAbility(SinisterStrike, 45, !player.IsSpellReady(GhostlyStrike) && shouldUseComboBuilder);
+            if (TryUseRotationAbility(SinisterStrike, 45, condition: BackstabRogueRotation.ShouldUseSinisterStrike(ghostlyStrikeReady, shouldUseComboBuilder))) return;
 
-            TryUseAbility(GhostlyStrike, 40, player.IsSpellReady(GhostlyStrike) && player.KnowsSpell(GhostlyStrike) && shouldUseComboBuilder);
+            if (TryUseRotationAbility(GhostlyStrike, 40, condition: BackstabRogueRotation.ShouldUseGhostlyStrike(player.KnowsSpell(GhostlyStrike), ghostlyStrikeReady, shouldUseComboBuilder))) return;
 
-            TryUseAbilityById(BloodFury, 3, 0, player.IsSpellReady(BloodFury) && target.HealthPercent > 80);
+            if (TryUseRotationAbilityById(BloodFury, 3, 0, condition: BackstabRogueRotation.ShouldUseBloodFury(player.IsSpellReady(BloodFury), target.HealthPercent))) return;
 
-            TryUseAbility(Evasion, 0, ObjectManager.Aggressors.Count() > 1);
+            if (TryUseRotationAbility(Evasion, 0, condition: BackstabRogueRotation.ShouldUseMultiTargetCooldown(aggressorCount))) return;
 
-            TryUseAbility(BladeFlurry, 25, ObjectManager.Aggressors.Count() > 1);
+            if (TryUseRotationAbility(BladeFlurry, 25, condition: BackstabRogueRotation.ShouldUseMultiTargetCooldown(aggressorCount))) return;
 
-            TryUseAbility(Riposte, 10, readyToRiposte, RiposteCallback);
+            if (TryUseRotationAbility(Riposte, 10, condition: readyToRiposte, callback: RiposteCallback)) return;
 
             // Caster interrupt abilities
 
-            TryUseAbility(Kick, 25, ReadyToInterrupt(target));
+            if (TryUseRotationAbility(Kick, 25, condition: readyToInterrupt)) return;
 
             // we use Kidneyshot (with 1 or 2 combo points only) before Gouge as Gouge has a longer cooldown and requires more energy, so sometimes gouge doesn't fire before casting is done.
 
-            TryUseAbility(KidneyShot, 25, BackstabRogueRotation.ShouldKidneyShotInterrupt(ReadyToInterrupt(target), player.IsSpellReady(Kick), player.ComboPoints));
+            if (TryUseRotationAbility(KidneyShot, 25, condition: BackstabRogueRotation.ShouldKidneyShotInterrupt(readyToInterrupt, kickReady, player.ComboPoints))) return;
 
-            TryUseAbility(Gouge, 45, ReadyToInterrupt(target) && !player.IsSpellReady(Kick));
+            if (TryUseRotationAbility(Gouge, 45, condition: BackstabRogueRotation.ShouldGougeInterrupt(readyToInterrupt, kickReady))) return;
         }
 
         void OnParryCallback(object sender, EventArgs e)

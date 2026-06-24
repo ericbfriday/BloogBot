@@ -64,5 +64,17 @@ namespace BloogBotTests
             Assert.IsFalse(AfflictionWarlockRotation.ShouldShadowBolt(40, true));
             Assert.IsTrue(AfflictionWarlockRotation.ShouldShadowBolt(40, false));
         }
+
+        // Priority-chain invariant: a wand-equipped warlock hands off from hard-cast
+        // Shadow Bolt to Drain Soul at the bottom of the health bar with no overlap.
+        [TestMethod]
+        public void DrainSoulAndShadowBoltCoverComplementaryHealthBands()
+        {
+            Assert.IsTrue(AfflictionWarlockRotation.ShouldDrainSoul(20));
+            Assert.IsFalse(AfflictionWarlockRotation.ShouldShadowBolt(20, true));
+
+            Assert.IsFalse(AfflictionWarlockRotation.ShouldDrainSoul(41));
+            Assert.IsTrue(AfflictionWarlockRotation.ShouldShadowBolt(41, true));
+        }
     }
 }

@@ -43,5 +43,39 @@ namespace BackstabRogueBot
             !readyToInterrupt &&
             comboPoints < 5 &&
             !readyToEviscerate;
+
+        // Prefer Ghostly Strike as the combo builder whenever it's known and off cooldown.
+        internal static bool ShouldUseGhostlyStrike(
+            bool knowsGhostlyStrike,
+            bool ghostlyStrikeReady,
+            bool shouldUseComboBuilder) =>
+            knowsGhostlyStrike &&
+            ghostlyStrikeReady &&
+            shouldUseComboBuilder;
+
+        // Sinister Strike is the fallback combo builder when Ghostly Strike isn't available.
+        internal static bool ShouldUseSinisterStrike(
+            bool ghostlyStrikeReady,
+            bool shouldUseComboBuilder) =>
+            !ghostlyStrikeReady &&
+            shouldUseComboBuilder;
+
+        // Pop Blood Fury early, while the target is still healthy enough to make the burst worthwhile.
+        internal static bool ShouldUseBloodFury(
+            bool bloodFuryReady,
+            int targetHealthPercent) =>
+            bloodFuryReady &&
+            targetHealthPercent > 80;
+
+        // Defensive/cleave cooldowns are only worth it when more than one mob is on us.
+        internal static bool ShouldUseMultiTargetCooldown(int aggressorCount) =>
+            aggressorCount > 1;
+
+        // Gouge is the interrupt of last resort: only when an interrupt is needed and Kick is on cooldown.
+        internal static bool ShouldGougeInterrupt(
+            bool readyToInterrupt,
+            bool kickReady) =>
+            readyToInterrupt &&
+            !kickReady;
     }
 }

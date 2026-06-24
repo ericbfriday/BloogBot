@@ -56,52 +56,89 @@ namespace ElementalShamanBot
             if (base.Update())
                 return;
 
-            TryCastSpell(GroundingTotem, 0, int.MaxValue, ObjectManager.Aggressors.Any(a => a.IsCasting && target.Mana > 0));
+            // Don't attempt spells without line of sight. Strafing is handled in CombatStateBase.
+            if (TriggerLosRecovery())
+                return;
 
-            TryCastSpell(EarthShock, 0, 20, ElementalShamanRotation.ShouldEarthShock(
-                ElementalShamanRotation.IsNatureImmune(target.Name),
+            var targetIsNatureImmune = ElementalShamanRotation.IsNatureImmune(target.Name);
+            var targetIsFireImmune = ElementalShamanRotation.IsFireImmune(target.Name);
+            var distanceToTarget = target.Position.DistanceTo(player.Position);
+
+            // Snapshot movement against last tick's position, then record this tick's
+            // position so the comparison stays correct even when the chain returns early.
+            var targetMovingTowardPlayer = TargetMovingTowardPlayer;
+            targetLastPosition = target.Position;
+
+            if (TryCastNoTargetRotationSpell(GroundingTotem, ElementalShamanRotation.ShouldGroundingTotem(
+                ObjectManager.Aggressors.Any(a => a.IsCasting), target.Mana)))
+                return;
+
+            if (TryCastRotationSpell(EarthShock, 0, 20, ElementalShamanRotation.ShouldEarthShock(
+                targetIsNatureImmune,
                 target.IsCasting,
                 target.IsChanneling,
-                player.HasBuff(Clearcasting)));
+                player.HasBuff(Clearcasting))))
+                return;
 
-            TryCastSpell(LightningBolt, 0, 30, ElementalShamanRotation.ShouldLightningBolt(
-                ElementalShamanRotation.IsNatureImmune(target.Name),
-                TargetMovingTowardPlayer,
-                target.Position.DistanceTo(player.Position),
+            if (TryCastRotationSpell(LightningBolt, 0, 30, ElementalShamanRotation.ShouldLightningBolt(
+                targetIsNatureImmune,
+                targetMovingTowardPlayer,
+                distanceToTarget,
                 player.HasBuff(FocusedCasting),
                 target.HealthPercent,
-                player.HasBuff(FocusedCasting) && target.HealthPercent > 20 && Wait.For("FocusedLightningBoltDelay", 4000, true)));
+                player.HasBuff(FocusedCasting) && target.HealthPercent > 20 && Wait.For("FocusedLightningBoltDelay", 4000, true))))
+                return;
 
-            TryCastSpell(TremorTotem, 0, int.MaxValue, ElementalShamanRotation.IsFearingCreature(target.Name) && !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 29 && u.HealthPercent > 0 && u.Name.Contains(TremorTotem)));
+            if (TryCastNoTargetRotationSpell(TremorTotem, ElementalShamanRotation.ShouldTremorTotem(
+                ElementalShamanRotation.IsFearingCreature(target.Name), IsTotemNearby(TremorTotem, 29))))
+                return;
 
-            TryCastSpell(StoneclawTotem, 0, int.MaxValue, ObjectManager.Aggressors.Count() > 1);
+            if (TryCastNoTargetRotationSpell(StoneclawTotem, ElementalShamanRotation.ShouldStoneclawTotem(ObjectManager.Aggressors.Count())))
+                return;
 
-            TryCastSpell(StoneskinTotem, 0, int.MaxValue, target.Mana == 0 && !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 19 && u.HealthPercent > 0 && (u.Name.Contains(StoneclawTotem) || u.Name.Contains(StoneskinTotem) || u.Name.Contains(TremorTotem))));
+            if (TryCastNoTargetRotationSpell(StoneskinTotem, ElementalShamanRotation.ShouldStoneskinTotem(
+                target.Mana,
+                IsTotemNearby(StoneclawTotem, 19) || IsTotemNearby(StoneskinTotem, 19) || IsTotemNearby(TremorTotem, 19))))
+                return;
 
-            TryCastSpell(SearingTotem, 0, int.MaxValue, target.HealthPercent > 70 && !ElementalShamanRotation.IsFireImmune(target.Name) && target.Position.DistanceTo(player.Position) < 20 && !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 19 && u.HealthPercent > 0 && u.Name.Contains(SearingTotem)));
+            if (TryCastNoTargetRotationSpell(SearingTotem, ElementalShamanRotation.ShouldSearingTotem(
+                target.HealthPercent,
+                targetIsFireImmune,
+                distanceToTarget,
+                IsTotemNearby(SearingTotem, 19))))
+                return;
 
-            TryCastSpell(ManaSpringTotem, 0, int.MaxValue, !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 19 && u.HealthPercent > 0 && u.Name.Contains(ManaSpringTotem)));
+            if (TryCastNoTargetRotationSpell(ManaSpringTotem, ElementalShamanRotation.ShouldManaSpringTotem(IsTotemNearby(ManaSpringTotem, 19))))
+                return;
 
-            TryCastSpell(FlameShock, 0, 20, ElementalShamanRotation.ShouldFlameShock(
+            if (TryCastRotationSpell(FlameShock, 0, 20, ElementalShamanRotation.ShouldFlameShock(
                 target.HasDebuff(FlameShock),
                 target.HealthPercent,
-                ElementalShamanRotation.IsNatureImmune(target.Name),
-                ElementalShamanRotation.IsFireImmune(target.Name)));
+                targetIsNatureImmune,
+                targetIsFireImmune)))
+                return;
 
-            TryCastSpell(LightningShield, 0, int.MaxValue, !ElementalShamanRotation.IsNatureImmune(target.Name) && !player.HasBuff(LightningShield));
+            if (TryCastNoTargetRotationSpell(LightningShield, ElementalShamanRotation.ShouldLightningShield(targetIsNatureImmune, player.HasBuff(LightningShield))))
+                return;
 
             var weaponEnchant = ElementalShamanRotation.SelectWeaponEnchant(
                 player.KnowsSpell(RockbiterWeapon),
                 player.KnowsSpell(FlametongueWeapon),
                 player.MainhandIsEnchanted,
-                ElementalShamanRotation.IsFireImmune(target.Name));
-            if (weaponEnchant != null)
-                TryCastSpell(weaponEnchant, 0, int.MaxValue);
+                targetIsFireImmune);
+            if (weaponEnchant != null && TryCastNoTargetRotationSpell(weaponEnchant))
+                return;
 
-            TryCastSpell(ElementalMastery, 0, int.MaxValue);
-
-            targetLastPosition = target.Position;
+            if (TryCastNoTargetRotationSpell(ElementalMastery))
+                return;
         }
+
+        bool IsTotemNearby(string name, float range) =>
+            ObjectManager.Units.Any(u =>
+                u.HealthPercent > 0 &&
+                u.Position.DistanceTo(player.Position) < range &&
+                u.Name != null &&
+                u.Name.Contains(name));
 
         bool TargetMovingTowardPlayer =>
             targetLastPosition != null &&

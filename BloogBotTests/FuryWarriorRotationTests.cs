@@ -92,5 +92,111 @@ namespace BloogBotTests
             Assert.AreEqual(15, FuryWarriorRotation.HeroicStrikeRageRequirement(29));
             Assert.AreEqual(45, FuryWarriorRotation.HeroicStrikeRageRequirement(30));
         }
+
+        [TestMethod]
+        public void DeathWishNeedsReadyCooldownAndHealthyTarget()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldUseDeathWish(true, 81));
+
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseDeathWish(false, 81));
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseDeathWish(true, 80));
+        }
+
+        [TestMethod]
+        public void BloodFuryNeedsHealthyTarget()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldUseBloodFury(81));
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseBloodFury(80));
+        }
+
+        [TestMethod]
+        public void BattleShoutIsRefreshedOnlyWhenMissing()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldUseBattleShout(false));
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseBattleShout(true));
+        }
+
+        [TestMethod]
+        public void BloodrageIsUsedAboveHalfHealth()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldUseBloodrage(51));
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseBloodrage(50));
+        }
+
+        [TestMethod]
+        public void ExecuteFiresBelowTwentyPercent()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldExecute(19));
+            Assert.IsFalse(FuryWarriorRotation.ShouldExecute(20));
+        }
+
+        [TestMethod]
+        public void BerserkerRageNeedsBerserkerStanceAndHealthyTarget()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldUseBerserkerRage(71, FuryWarriorRotation.BerserkerStance));
+
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseBerserkerRage(70, FuryWarriorRotation.BerserkerStance));
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseBerserkerRage(71, FuryWarriorRotation.BattleStance));
+        }
+
+        [TestMethod]
+        public void OverpowerNeedsBattleStanceAndDodgeProc()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldOverpower(FuryWarriorRotation.BattleStance, true));
+
+            Assert.IsFalse(FuryWarriorRotation.ShouldOverpower(FuryWarriorRotation.BerserkerStance, true));
+            Assert.IsFalse(FuryWarriorRotation.ShouldOverpower(FuryWarriorRotation.BattleStance, false));
+        }
+
+        [TestMethod]
+        public void IntimidatingShoutNeedsBunchedUnfearedNonRetaliatingPack()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldUseIntimidatingShout(false, false, true));
+
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseIntimidatingShout(true, false, true));
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseIntimidatingShout(false, true, true));
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseIntimidatingShout(false, false, false));
+        }
+
+        [TestMethod]
+        public void DemoralizingShoutIsRefreshedOnlyWhenMissing()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldUseDemoralizingShout(false));
+            Assert.IsFalse(FuryWarriorRotation.ShouldUseDemoralizingShout(true));
+        }
+
+        [TestMethod]
+        public void SlamNeedsProcAboveExecuteRange()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldSlam(21, true));
+
+            Assert.IsFalse(FuryWarriorRotation.ShouldSlam(20, true));
+            Assert.IsFalse(FuryWarriorRotation.ShouldSlam(21, false));
+        }
+
+        [TestMethod]
+        public void HamstringSnaresHumanoidsWithoutTheDebuff()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldHamstring(CreatureType.Humanoid, false));
+
+            Assert.IsFalse(FuryWarriorRotation.ShouldHamstring(CreatureType.Beast, false));
+            Assert.IsFalse(FuryWarriorRotation.ShouldHamstring(CreatureType.Humanoid, true));
+        }
+
+        [TestMethod]
+        public void HeroicStrikeFiresAboveThirtyPercent()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldHeroicStrike(31));
+            Assert.IsFalse(FuryWarriorRotation.ShouldHeroicStrike(30));
+        }
+
+        [TestMethod]
+        public void SunderArmorIsAppliedOnDamagedTargetsWithoutTheDebuff()
+        {
+            Assert.IsTrue(FuryWarriorRotation.ShouldSunderArmor(79, false));
+
+            Assert.IsFalse(FuryWarriorRotation.ShouldSunderArmor(80, false));
+            Assert.IsFalse(FuryWarriorRotation.ShouldSunderArmor(79, true));
+        }
     }
 }

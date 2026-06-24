@@ -55,7 +55,11 @@ namespace RetributionPaladinBot
             if (base.Update())
                 return;
 
-            TryCastSpell(Purify, ShouldCastPurify(), castOnSelf: true);
+            // Melee hybrid — no proactive LOS gate; the base closes the distance.
+
+            if (TryCastRotationSpell(Purify, player.GetDebuffs(LuaTarget.Player).Any(debuff =>
+                    debuff.Type == EffectType.Poison || debuff.Type == EffectType.Disease), castOnSelf: true))
+                return;
 
             var aura = RetributionPaladinCombatRotation.SelectAura(
                 player.KnowsSpell(DevotionAura),
@@ -64,24 +68,35 @@ namespace RetributionPaladinBot
                 player.HasBuff(RetributionAura),
                 player.KnowsSpell(SanctityAura),
                 player.HasBuff(SanctityAura));
-            if (aura != null)
-                TryCastSpell(aura);
+            if (aura != null && TryCastNoTargetRotationSpell(aura))
+                return;
 
-            TryCastSpell(Exorcism, target.CreatureType == CreatureType.Undead || target.CreatureType == CreatureType.Demon);
+            if (TryCastRotationSpell(Exorcism, RetributionPaladinCombatRotation.ShouldExorcism(
+                target.CreatureType == CreatureType.Undead || target.CreatureType == CreatureType.Demon)))
+                return;
 
-            TryCastSpell(HammerOfJustice, target.CreatureType != CreatureType.Humanoid || (target.CreatureType == CreatureType.Humanoid && target.HealthPercent < 20));
+            if (TryCastRotationSpell(HammerOfJustice, RetributionPaladinCombatRotation.ShouldHammerOfJustice(
+                target.CreatureType == CreatureType.Humanoid, target.HealthPercent)))
+                return;
 
-            TryCastSpell(SealOfTheCrusader, !player.HasBuff(SealOfTheCrusader) && !target.HasDebuff(JudgementOfTheCrusader));
+            if (TryCastNoTargetRotationSpell(SealOfTheCrusader, RetributionPaladinCombatRotation.ShouldSealOfTheCrusader(
+                player.HasBuff(SealOfTheCrusader), target.HasDebuff(JudgementOfTheCrusader))))
+                return;
 
-            TryCastSpell(SealOfRighteousness, RetributionPaladinCombatRotation.ShouldUseSealOfRighteousness(
+            if (TryCastNoTargetRotationSpell(SealOfRighteousness, RetributionPaladinCombatRotation.ShouldUseSealOfRighteousness(
                 player.HasBuff(SealOfRighteousness),
                 target.HasDebuff(JudgementOfTheCrusader),
                 player.KnowsSpell(SealOfCommand),
-                player.KnowsSpell(JudgementOfTheCrusader)));
+                player.KnowsSpell(JudgementOfTheCrusader))))
+                return;
 
-            TryCastSpell(SealOfCommand, !player.HasBuff(SealOfCommand) && target.HasDebuff(JudgementOfTheCrusader));
+            if (TryCastNoTargetRotationSpell(SealOfCommand, RetributionPaladinCombatRotation.ShouldSealOfCommand(
+                player.HasBuff(SealOfCommand), target.HasDebuff(JudgementOfTheCrusader))))
+                return;
 
-            TryCastSpell(HolyShield, !player.HasBuff(HolyShield) && target.HealthPercent > 50);
+            if (TryCastNoTargetRotationSpell(HolyShield, RetributionPaladinCombatRotation.ShouldHolyShield(
+                player.HasBuff(HolyShield), target.HealthPercent)))
+                return;
 
             if (ClientHelper.ClientVersion == ClientVersion.WotLK)
             {
@@ -90,28 +105,16 @@ namespace RetributionPaladinBot
                     target.HasDebuff(JudgementOfWisdom),
                     target.HasDebuff(JudgementOfLight),
                     player.Buffs.Any(b => b.Name.StartsWith("Seal of")));
-                if (judgement != null)
-                    TryCastSpell(judgement, 0, 10);
+                if (judgement != null && TryCastRotationSpell(judgement, 0, 10))
+                    return;
             }
-            else
-            {
-                TryCastSpell(Judgement, RetributionPaladinCombatRotation.ShouldUseLegacyJudgement(
-                    player.HasBuff(SealOfTheCrusader),
-                    player.HasBuff(SealOfRighteousness),
-                    player.HasBuff(SealOfCommand),
-                    player.ManaPercent,
-                    target.HealthPercent));
-            }
-        }
-
-        bool ShouldCastPurify()
-        {
-            if (!player.KnowsSpell(Purify) || !player.IsSpellReady(Purify) || player.Mana < player.GetManaCost(Purify))
-                return false;
-
-            return player.GetDebuffs(LuaTarget.Player).Any(debuff =>
-                debuff.Type == EffectType.Poison ||
-                debuff.Type == EffectType.Disease);
+            else if (TryCastRotationSpell(Judgement, RetributionPaladinCombatRotation.ShouldUseLegacyJudgement(
+                player.HasBuff(SealOfTheCrusader),
+                player.HasBuff(SealOfRighteousness),
+                player.HasBuff(SealOfCommand),
+                player.ManaPercent,
+                target.HealthPercent)))
+                return;
         }
     }
 }

@@ -62,5 +62,46 @@ namespace BloogBotTests
             Assert.IsFalse(BackstabRogueRotation.ShouldUseComboBuilder(false, 5, false));
             Assert.IsFalse(BackstabRogueRotation.ShouldUseComboBuilder(false, 3, true));
         }
+
+        [TestMethod]
+        public void GhostlyStrikeIsPreferredBuilderWhenKnownAndReady()
+        {
+            Assert.IsTrue(BackstabRogueRotation.ShouldUseGhostlyStrike(true, true, true));
+            Assert.IsFalse(BackstabRogueRotation.ShouldUseGhostlyStrike(false, true, true));
+            Assert.IsFalse(BackstabRogueRotation.ShouldUseGhostlyStrike(true, false, true));
+            Assert.IsFalse(BackstabRogueRotation.ShouldUseGhostlyStrike(true, true, false));
+        }
+
+        [TestMethod]
+        public void SinisterStrikeBuildsOnlyWhenGhostlyStrikeIsUnavailable()
+        {
+            Assert.IsTrue(BackstabRogueRotation.ShouldUseSinisterStrike(false, true));
+            Assert.IsFalse(BackstabRogueRotation.ShouldUseSinisterStrike(true, true));
+            Assert.IsFalse(BackstabRogueRotation.ShouldUseSinisterStrike(false, false));
+        }
+
+        [TestMethod]
+        public void BloodFuryFiresOnHealthyTargetsWhenReady()
+        {
+            Assert.IsTrue(BackstabRogueRotation.ShouldUseBloodFury(true, 81));
+            Assert.IsFalse(BackstabRogueRotation.ShouldUseBloodFury(true, 80));
+            Assert.IsFalse(BackstabRogueRotation.ShouldUseBloodFury(false, 81));
+        }
+
+        [TestMethod]
+        public void MultiTargetCooldownsNeedMoreThanOneAggressor()
+        {
+            Assert.IsTrue(BackstabRogueRotation.ShouldUseMultiTargetCooldown(2));
+            Assert.IsFalse(BackstabRogueRotation.ShouldUseMultiTargetCooldown(1));
+            Assert.IsFalse(BackstabRogueRotation.ShouldUseMultiTargetCooldown(0));
+        }
+
+        [TestMethod]
+        public void GougeInterruptsOnlyWhenKickIsDown()
+        {
+            Assert.IsTrue(BackstabRogueRotation.ShouldGougeInterrupt(true, false));
+            Assert.IsFalse(BackstabRogueRotation.ShouldGougeInterrupt(true, true));
+            Assert.IsFalse(BackstabRogueRotation.ShouldGougeInterrupt(false, false));
+        }
     }
 }

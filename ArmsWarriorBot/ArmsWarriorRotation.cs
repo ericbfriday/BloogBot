@@ -69,5 +69,59 @@ namespace ArmsWarriorBot
             (targetHasThunderClap || !knowsThunderClap || targetHealthPercent < 50) &&
             (targetHasDemoralizingShout || !knowsDemoralizingShout || targetHealthPercent < 50) &&
             (hasSweepingStrikes || !sweepingStrikesReady);
+
+        // Fear the pack with Intimidating Shout only when it isn't already feared (or replaced by
+        // Retaliation), every aggressor is in melee range, and no neutral bystander would get pulled.
+        internal static bool ShouldIntimidatingShout(
+            bool targetHasIntimidatingShout,
+            bool hasRetaliation,
+            bool allAggressorsInRange,
+            bool neutralBystanderInRange) =>
+            !(targetHasIntimidatingShout || hasRetaliation) &&
+            allAggressorsInRange &&
+            !neutralBystanderInRange;
+
+        // Pop Retaliation when it's off cooldown, the whole pack is in melee range, and nobody is
+        // feared (Intimidating Shout would just send the mobs running out of cleave range).
+        internal static bool ShouldRetaliation(
+            bool retaliationReady,
+            bool allAggressorsInRange,
+            bool anyAggressorHasIntimidatingShout) =>
+            retaliationReady &&
+            allAggressorsInRange &&
+            !anyAggressorHasIntimidatingShout;
+
+        // Demoralizing Shout is the AoE debuff filler once Intimidating Shout is unavailable (or
+        // we're already retaliating): needs an undebuffed, healthy aggressor in range and no feared
+        // or neutral mob nearby.
+        internal static bool ShouldDemoralizingShout(
+            bool anyAggressorNeedsDemoralizingShout,
+            bool allAggressorsInRange,
+            bool intimidatingShoutReady,
+            bool hasRetaliation,
+            bool neutralOrFearedUnitInRange) =>
+            anyAggressorNeedsDemoralizingShout &&
+            allAggressorsInRange &&
+            (!intimidatingShoutReady || hasRetaliation) &&
+            !neutralOrFearedUnitInRange;
+
+        // Thunder Clap mirrors Demoralizing Shout's gating but on the tighter Thunder Clap range.
+        internal static bool ShouldThunderClap(
+            bool anyAggressorNeedsThunderClap,
+            bool allAggressorsInRange,
+            bool intimidatingShoutReady,
+            bool hasRetaliation,
+            bool neutralOrFearedUnitInRange) =>
+            anyAggressorNeedsThunderClap &&
+            allAggressorsInRange &&
+            (!intimidatingShoutReady || hasRetaliation) &&
+            !neutralOrFearedUnitInRange;
+
+        // Keep Sweeping Strikes up while there's still meaningful health left to cleave into.
+        internal static bool ShouldSweepingStrikes(
+            bool hasSweepingStrikes,
+            int targetHealthPercent) =>
+            !hasSweepingStrikes &&
+            targetHealthPercent > 30;
     }
 }

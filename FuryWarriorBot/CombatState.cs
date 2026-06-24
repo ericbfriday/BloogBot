@@ -103,71 +103,74 @@ namespace FuryWarriorBot
             var currentStance = player.CurrentStance;
             var spellcastingAggressors = ObjectManager.Aggressors
                 .Where(a => a.Mana > 0);
-            // Use these abilities when fighting any number of mobs.   
-            TryUseAbility(BerserkerStance, condition: FuryWarriorRotation.ShouldEnterBerserkerStance(
+            // Use these abilities when fighting any number of mobs.
+            if (TryUseRotationAbility(BerserkerStance, condition: FuryWarriorRotation.ShouldEnterBerserkerStance(
                 player.Level,
                 currentStance,
                 target.HasDebuff(Rend),
                 target.HealthPercent,
-                target.CreatureType));
+                target.CreatureType))) return;
 
-            TryUseAbility(Pummel, 10, FuryWarriorRotation.ShouldPummel(currentStance, target.Mana, target.IsCasting, target.IsChanneling));
+            if (TryUseRotationAbility(Pummel, 10, condition: FuryWarriorRotation.ShouldPummel(currentStance, target.Mana, target.IsCasting, target.IsChanneling))) return;
 
             // TryUseAbility(Rend, 10, (currentStance == BattleStance && target.HealthPercent > 50 && !target.HasDebuff(Rend) && (target.CreatureType != CreatureType.Elemental && target.CreatureType != CreatureType.Undead)));
 
-            TryUseAbility(DeathWish, 10, player.IsSpellReady(DeathWish) && target.HealthPercent > 80);
+            if (TryUseRotationAbility(DeathWish, 10, condition: FuryWarriorRotation.ShouldUseDeathWish(player.IsSpellReady(DeathWish), target.HealthPercent))) return;
 
-            TryUseAbility(BattleShout, 10, !player.HasBuff(BattleShout));
+            if (TryUseRotationAbility(BattleShout, 10, condition: FuryWarriorRotation.ShouldUseBattleShout(player.HasBuff(BattleShout)))) return;
 
-            TryUseAbilityById(BloodFury, 4, 0, target.HealthPercent > 80);
+            if (TryUseRotationAbilityById(BloodFury, 4, 0, FuryWarriorRotation.ShouldUseBloodFury(target.HealthPercent))) return;
 
-            TryUseAbility(Bloodrage, condition: target.HealthPercent > 50);
+            if (TryUseRotationAbility(Bloodrage, condition: FuryWarriorRotation.ShouldUseBloodrage(target.HealthPercent))) return;
 
-            TryUseAbility(Execute, 15, target.HealthPercent < 20);
+            if (TryUseRotationAbility(Execute, 15, condition: FuryWarriorRotation.ShouldExecute(target.HealthPercent))) return;
 
-            TryUseAbility(BerserkerRage, condition: target.HealthPercent > 70 && currentStance == BerserkerStance);
+            if (TryUseRotationAbility(BerserkerRage, condition: FuryWarriorRotation.ShouldUseBerserkerRage(target.HealthPercent, currentStance))) return;
 
-            TryUseAbility(Overpower, 5, currentStance == BattleStance && player.CanOverpower);
+            if (TryUseRotationAbility(Overpower, 5, condition: FuryWarriorRotation.ShouldOverpower(currentStance, player.CanOverpower))) return;
 
             // Use these abilities if you are fighting TWO OR MORE mobs at once.
             if (ObjectManager.Aggressors.Count() >= 2)
             {
-                TryUseAbility(IntimidatingShout, 25, !(target.HasDebuff(IntimidatingShout) || player.HasBuff(Retaliation)) && ObjectManager.Aggressors.All(a => a.Position.DistanceTo(player.Position) < 10));
+                if (TryUseRotationAbility(IntimidatingShout, 25, condition: FuryWarriorRotation.ShouldUseIntimidatingShout(
+                    target.HasDebuff(IntimidatingShout),
+                    player.HasBuff(Retaliation),
+                    ObjectManager.Aggressors.All(a => a.Position.DistanceTo(player.Position) < 10)))) return;
 
-                TryUseAbility(DemoralizingShout, 10, !target.HasDebuff(DemoralizingShout));
+                if (TryUseRotationAbility(DemoralizingShout, 10, condition: FuryWarriorRotation.ShouldUseDemoralizingShout(target.HasDebuff(DemoralizingShout)))) return;
 
                 // TryUseAbility(Cleave, 20, target.HealthPercent > 20 && FacingAllTargets);
 
-                TryUseAbility(Whirlwind, 25, FuryWarriorRotation.ShouldWhirlwind(
+                if (TryUseRotationAbility(Whirlwind, 25, condition: FuryWarriorRotation.ShouldWhirlwind(
                     currentStance,
                     target.HealthPercent,
                     target.HasDebuff(IntimidatingShout),
-                    AggressorsInMelee));
+                    AggressorsInMelee))) return;
 
-                TryUseAbility(Retaliation, 0, FuryWarriorRotation.ShouldUseRetaliation(
+                if (TryUseRotationAbility(Retaliation, 0, condition: FuryWarriorRotation.ShouldUseRetaliation(
                     player.IsSpellReady(Retaliation),
                     spellcastingAggressors.Count(),
                     currentStance,
                     FacingAllTargets,
-                    ObjectManager.Aggressors.Any(a => a.HasDebuff(IntimidatingShout))));
+                    ObjectManager.Aggressors.Any(a => a.HasDebuff(IntimidatingShout))))) return;
             }
 
             // Use these abilities if you are fighting only one mob at a time, or multiple and one or more are not in melee range.
             if (ObjectManager.Aggressors.Count() >= 1 || (ObjectManager.Aggressors.Count() > 1 && !AggressorsInMelee))
             {
-                TryUseAbility(Slam, 15, target.HealthPercent > 20 && slamReady, SlamCallback);
+                if (TryUseRotationAbility(Slam, 15, condition: FuryWarriorRotation.ShouldSlam(target.HealthPercent, slamReady), callback: SlamCallback)) return;
 
                 // TryUseAbility(Rend, 10, (currentStance == BattleStance && target.HealthPercent > 50 && !target.HasDebuff(Rend) && (target.CreatureType != CreatureType.Elemental && target.CreatureType != CreatureType.Undead)));
 
-                TryUseAbility(Bloodthirst, 30);
+                if (TryUseRotationAbility(Bloodthirst, 30)) return;
 
-                TryUseAbility(Hamstring, 10, target.CreatureType == CreatureType.Humanoid && !target.HasDebuff(Hamstring));
+                if (TryUseRotationAbility(Hamstring, 10, condition: FuryWarriorRotation.ShouldHamstring(target.CreatureType, target.HasDebuff(Hamstring)))) return;
 
-                TryUseAbility(HeroicStrike, FuryWarriorRotation.HeroicStrikeRageRequirement(player.Level), target.HealthPercent > 30);
+                if (TryUseRotationAbility(HeroicStrike, FuryWarriorRotation.HeroicStrikeRageRequirement(player.Level), condition: FuryWarriorRotation.ShouldHeroicStrike(target.HealthPercent))) return;
 
-                TryUseAbility(Execute, 15, target.HealthPercent < 20);
+                if (TryUseRotationAbility(Execute, 15, condition: FuryWarriorRotation.ShouldExecute(target.HealthPercent))) return;
 
-                TryUseAbility(SunderArmor, 15, target.HealthPercent < 80 && !target.HasDebuff(SunderArmor));
+                if (TryUseRotationAbility(SunderArmor, 15, condition: FuryWarriorRotation.ShouldSunderArmor(target.HealthPercent, target.HasDebuff(SunderArmor)))) return;
             }
         }
 

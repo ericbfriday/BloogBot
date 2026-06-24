@@ -32,11 +32,6 @@ namespace ElementalShamanBot
         const string TremorTotem = "Tremor Totem";
         const string LesserHealingWave = "Lesser Healing Wave";
 
-        readonly string[] fearingCreatures = new[] { "Scorpid Terror" };
-        readonly string[] fireImmuneCreatures = new[] { "Rogue Flame Spirit", "Burning Destroyer" };
-        readonly string[] natureImmuneCreatures = new[] { "Swirling Vortex", "Gusting Vortex", "Dust Stormer" };
-
-        
         Position targetLastPosition;
 
         bool noLos;
@@ -99,8 +94,11 @@ namespace ElementalShamanBot
             // ensure auto-attack is turned on
             player.LuaCall(AutoAttackLuaScript);
 
+            var targetIsNatureImmune = ElementalShamanRotation.IsNatureImmune(target.Name);
+            var targetIsFireImmune = ElementalShamanRotation.IsFireImmune(target.Name);
+
             // ensure we're in melee range
-            if (player.Position.DistanceTo(target.Position) > 35 || (natureImmuneCreatures.Contains(target.Name) || player.Mana < player.GetManaCost(LightningBolt) && (player.Position.DistanceTo(target.Position) > 3)))
+            if (player.Position.DistanceTo(target.Position) > 35 || (targetIsNatureImmune || player.Mana < player.GetManaCost(LightningBolt) && (player.Position.DistanceTo(target.Position) > 3)))
             {
                 var nextWaypoint = Navigation.GetNextWaypoint(ObjectManager.MapId, player.Position, target.Position, false);
                 player.MoveToward(nextWaypoint);
@@ -108,6 +106,18 @@ namespace ElementalShamanBot
             else
                 player.StopAllMovement();
 
+            // Don't attempt spells without line of sight; close distance until we have it.
+            if (!player.InLosWith(target.Position))
+            {
+                var nextWaypoint = Navigation.GetNextWaypoint(ObjectManager.MapId, player.Position, target.Position, false);
+                player.MoveToward(nextWaypoint);
+                return;
+            }
+
+            // Snapshot movement against last tick's position, then record this tick's
+            // position so the comparison stays correct even when the chain returns early.
+            var targetMovingTowardPlayer = TargetMovingTowardPlayer;
+            targetLastPosition = target.Position;
 
             // ----- COMBAT ROTATION -----
             var partyMembers = ObjectManager.GetPartyMembers();
@@ -116,36 +126,64 @@ namespace ElementalShamanBot
             if (healTarget != null && player.Mana > player.GetManaCost(HealingWave))
             {
                 player.SetTarget(healTarget.Guid);
-                TryCastSpell(HealingWave);
+                if (TryCastSpell(HealingWave))
+                    return;
             }
 
-            TryCastSpell(LightningBolt, player.ManaPercent > 50 && target.HealthPercent < 90 && !natureImmuneCreatures.Contains(target.Name) && ((TargetMovingTowardPlayer && target.Position.DistanceTo(player.Position) > 15) || (!TargetMovingTowardPlayer && target.Position.DistanceTo(player.Position) > 5) || (player.HasBuff(FocusedCasting) && target.HealthPercent > 20 && Wait.For("FocusedLightningBoltDelay", 4000, true))));
+            if (TryCastSpell(LightningBolt, ElementalShamanRotation.ShouldLightningBolt(
+                    targetIsNatureImmune,
+                    targetMovingTowardPlayer,
+                    target.Position.DistanceTo(player.Position),
+                    player.HasBuff(FocusedCasting),
+                    target.HealthPercent,
+                    player.HasBuff(FocusedCasting) && target.HealthPercent > 20 && Wait.For("FocusedLightningBoltDelay", 4000, true))
+                && player.ManaPercent > 50 && target.HealthPercent < 90))
+                return;
 
-            TryCastSpell(FlameShock, player.ManaPercent > 50 && target.HealthPercent < 90 && !target.HasDebuff(FlameShock) && (target.HealthPercent >= 50 || natureImmuneCreatures.Contains(target.Name)) && !fireImmuneCreatures.Contains(target.Name));
+            if (TryCastSpell(FlameShock, ElementalShamanRotation.ShouldFlameShock(
+                    target.HasDebuff(FlameShock),
+                    target.HealthPercent,
+                    targetIsNatureImmune,
+                    targetIsFireImmune)
+                && player.ManaPercent > 50 && target.HealthPercent < 90))
+                return;
 
-            TryCastSpell(LightningShield, !natureImmuneCreatures.Contains(target.Name) && !player.HasBuff(LightningShield));
+            if (TryCastSpell(LightningShield, ElementalShamanRotation.ShouldLightningShield(targetIsNatureImmune, player.HasBuff(LightningShield))))
+                return;
 
-            TryCastSpell(RockbiterWeapon, player.KnowsSpell(RockbiterWeapon) && (fireImmuneCreatures.Contains(target.Name) || !player.MainhandIsEnchanted && !player.KnowsSpell(FlametongueWeapon)));
+            var weaponEnchant = ElementalShamanRotation.SelectWeaponEnchant(
+                player.KnowsSpell(RockbiterWeapon),
+                player.KnowsSpell(FlametongueWeapon),
+                player.MainhandIsEnchanted,
+                targetIsFireImmune);
+            if (weaponEnchant != null && TryCastSpell(weaponEnchant))
+                return;
 
-            TryCastSpell(FlametongueWeapon, player.KnowsSpell(FlametongueWeapon) && !player.MainhandIsEnchanted && !fireImmuneCreatures.Contains(target.Name));
+            if (TryCastSpell(ManaSpringTotem, ElementalShamanRotation.ShouldManaSpringTotem(IsTotemNearby(ManaSpringTotem, 19))))
+                return;
 
-            TryCastSpell(ManaSpringTotem, !ObjectManager.Units.Any(u => u.Position.DistanceTo(player.Position) < 19 && u.HealthPercent > 0 && u.Name.Contains(ManaSpringTotem)));
-
-            TryCastSpell(ElementalMastery);
-
-            targetLastPosition = target.Position;
+            if (TryCastSpell(ElementalMastery))
+                return;
         }
 
-        void TryCastSpell(string name, bool condition = true, Action callback = null)
+        bool TryCastSpell(string name, bool condition = true, Action callback = null)
         {
-            var distanceToTarget = player.Position.DistanceTo(target.Position);
-
             if (player.IsSpellReady(name) && player.Mana >= player.GetManaCost(name) && condition && !player.IsStunned && !player.IsCasting && !player.IsChanneling)
             {
                 player.LuaCall($"CastSpellByName(\"{name}\")");
                 callback?.Invoke();
+                return true;
             }
+
+            return false;
         }
+
+        bool IsTotemNearby(string name, float range) =>
+            ObjectManager.Units.Any(u =>
+                u.HealthPercent > 0 &&
+                u.Position.DistanceTo(player.Position) < range &&
+                u.Name != null &&
+                u.Name.Contains(name));
 
         bool TargetMovingTowardPlayer =>
             targetLastPosition != null &&

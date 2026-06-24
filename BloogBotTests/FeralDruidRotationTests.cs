@@ -79,5 +79,47 @@ namespace BloogBotTests
             Assert.IsFalse(FeralDruidRotation.ShouldRip(false, 4));
             Assert.IsFalse(FeralDruidRotation.ShouldRip(true, 5));
         }
+
+        [TestMethod]
+        public void DemoralizingRoarIsForPacksThatLackTheDebuff()
+        {
+            Assert.IsTrue(FeralDruidRotation.ShouldDemoralizingRoar(2, false));
+            Assert.IsFalse(FeralDruidRotation.ShouldDemoralizingRoar(1, false));
+            Assert.IsFalse(FeralDruidRotation.ShouldDemoralizingRoar(2, true));
+        }
+
+        [TestMethod]
+        public void DamageCooldownsAreSavedForLivelyTargets()
+        {
+            Assert.IsTrue(FeralDruidRotation.ShouldBerserk(31, false));
+            Assert.IsFalse(FeralDruidRotation.ShouldBerserk(30, false));
+            Assert.IsFalse(FeralDruidRotation.ShouldBerserk(31, true));
+
+            Assert.IsTrue(FeralDruidRotation.ShouldTigersFury(31, false));
+            Assert.IsFalse(FeralDruidRotation.ShouldTigersFury(30, false));
+            Assert.IsFalse(FeralDruidRotation.ShouldTigersFury(31, true));
+        }
+
+        [TestMethod]
+        public void FaerieFireIsRefreshedWhenMissing()
+        {
+            Assert.IsTrue(FeralDruidRotation.ShouldFaerieFire(false));
+            Assert.IsFalse(FeralDruidRotation.ShouldFaerieFire(true));
+        }
+
+        [TestMethod]
+        public void FinisherCadenceSpendsAtFiveComboPoints()
+        {
+            Assert.IsTrue(FeralDruidRotation.ShouldFerociousBite(5));
+            Assert.IsFalse(FeralDruidRotation.ShouldFerociousBite(4));
+        }
+
+        [TestMethod]
+        public void RakeBleedsHealthyTargetsThatLackIt()
+        {
+            Assert.IsTrue(FeralDruidRotation.ShouldRake(51, false));
+            Assert.IsFalse(FeralDruidRotation.ShouldRake(50, false));
+            Assert.IsFalse(FeralDruidRotation.ShouldRake(51, true));
+        }
     }
 }

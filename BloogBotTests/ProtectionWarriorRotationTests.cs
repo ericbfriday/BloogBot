@@ -44,5 +44,53 @@ namespace BloogBotTests
             Assert.IsFalse(ProtectionWarriorRotation.ShouldRend(80, true, CreatureType.Beast));
             Assert.IsFalse(ProtectionWarriorRotation.ShouldRend(50, false, CreatureType.Beast));
         }
+
+        [TestMethod]
+        public void RetaliationRequiresThreeOrMoreAggressors()
+        {
+            Assert.IsTrue(ProtectionWarriorRotation.ShouldUseRetaliation(3));
+            Assert.IsTrue(ProtectionWarriorRotation.ShouldUseRetaliation(4));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseRetaliation(2));
+        }
+
+        [TestMethod]
+        public void DemoralizingShoutRefreshesWhenMissingAndAggressorsAreClose()
+        {
+            Assert.IsTrue(ProtectionWarriorRotation.ShouldUseDemoralizingShout(false, true));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseDemoralizingShout(true, true));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseDemoralizingShout(false, false));
+        }
+
+        [TestMethod]
+        public void ThunderClapRefreshesWhenMissingAndAggressorsAreClose()
+        {
+            Assert.IsTrue(ProtectionWarriorRotation.ShouldUseThunderClap(false, true));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseThunderClap(true, true));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseThunderClap(false, false));
+        }
+
+        [TestMethod]
+        public void LastStandFiresAtEightPercentOrLower()
+        {
+            Assert.IsTrue(ProtectionWarriorRotation.ShouldUseLastStand(8));
+            Assert.IsTrue(ProtectionWarriorRotation.ShouldUseLastStand(5));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseLastStand(9));
+        }
+
+        [TestMethod]
+        public void ShieldBashInterruptsCastersWithMana()
+        {
+            Assert.IsTrue(ProtectionWarriorRotation.ShouldUseShieldBash(true, 100));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseShieldBash(false, 100));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseShieldBash(true, 0));
+        }
+
+        [TestMethod]
+        public void ShieldSlamFiresAboveThirtyPercent()
+        {
+            Assert.IsTrue(ProtectionWarriorRotation.ShouldUseShieldSlam(31));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseShieldSlam(30));
+            Assert.IsFalse(ProtectionWarriorRotation.ShouldUseShieldSlam(20));
+        }
     }
 }

@@ -41,32 +41,47 @@ namespace AfflictionWarlockBot
 
             ObjectManager.Pet?.Attack();
 
-            // if target is low on health, turn off wand and cast drain soul
+            // Don't attempt spells without line of sight. Strafing is handled in CombatStateBase.
+            if (TriggerLosRecovery())
+                return;
+
+            var wand = Inventory.GetEquippedItem(EquipSlot.Ranged);
+
+            // Dying target: switch off the wand and drain its soul for the shard.
             if (AfflictionWarlockRotation.ShouldDrainSoul(target.HealthPercent))
             {
                 player.LuaCall(TurnOffWandLuaScript);
-                TryCastSpell(DrainSoul, 0, 29);
+                if (TryCastRotationSpell(DrainSoul, 0, 29))
+                    return;
             }
 
-            var wand = Inventory.GetEquippedItem(EquipSlot.Ranged);
+            // Wand to conserve mana, or to let dots finish a wounded target.
             if (AfflictionWarlockRotation.ShouldUseWand(wand != null, player.ManaPercent, target.HealthPercent, player.IsCasting, player.IsChanneling))
-                player.LuaCall(WandLuaScript);
-            else
             {
-                TryCastSpell(DeathCoil, 0, 30, AfflictionWarlockRotation.ShouldDeathCoil(target.IsCasting, target.IsChanneling, target.HealthPercent));
-
-                TryCastSpell(LifeTap, 0, int.MaxValue, AfflictionWarlockRotation.ShouldLifeTap(player.HealthPercent, player.ManaPercent));
-
-                TryCastSpell(CurseOfAgony, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(CurseOfAgony), target.HealthPercent, 90));
-
-                TryCastSpell(Immolate, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(Immolate), target.HealthPercent, 30));
-
-                TryCastSpell(Corruption, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(Corruption), target.HealthPercent, 30));
-
-                TryCastSpell(SiphonLife, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(SiphonLife), target.HealthPercent, 50));
-
-                TryCastSpell(ShadowBolt, 0, 30, AfflictionWarlockRotation.ShouldShadowBolt(target.HealthPercent, wand != null));
+                player.LuaCall(WandLuaScript);
+                return;
             }
+
+            if (TryCastRotationSpell(DeathCoil, 0, 30, AfflictionWarlockRotation.ShouldDeathCoil(target.IsCasting, target.IsChanneling, target.HealthPercent)))
+                return;
+
+            if (TryCastRotationSpell(LifeTap, 0, int.MaxValue, AfflictionWarlockRotation.ShouldLifeTap(player.HealthPercent, player.ManaPercent)))
+                return;
+
+            if (TryCastRotationSpell(CurseOfAgony, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(CurseOfAgony), target.HealthPercent, 90)))
+                return;
+
+            if (TryCastRotationSpell(Immolate, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(Immolate), target.HealthPercent, 30)))
+                return;
+
+            if (TryCastRotationSpell(Corruption, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(Corruption), target.HealthPercent, 30)))
+                return;
+
+            if (TryCastRotationSpell(SiphonLife, 0, 30, AfflictionWarlockRotation.ShouldApplyDot(target.HasDebuff(SiphonLife), target.HealthPercent, 50)))
+                return;
+
+            if (TryCastRotationSpell(ShadowBolt, 0, 30, AfflictionWarlockRotation.ShouldShadowBolt(target.HealthPercent, wand != null)))
+                return;
         }
     }
 }

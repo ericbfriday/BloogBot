@@ -52,25 +52,41 @@ namespace ArcaneMageBot
             if (base.Update())
                 return;
 
+            // Don't attempt spells without line of sight. Strafing is handled in CombatStateBase.
+            if (TriggerLosRecovery())
+                return;
+
             var hasWand = Inventory.GetEquippedItem(EquipSlot.Ranged) != null;
             if (ArcaneMageRotation.ShouldUseWand(hasWand, player.ManaPercent, player.IsCasting, player.IsChanneling))
+            {
                 player.LuaCall(WandLuaScript);
+                return;
+            }
 
-            TryCastSpell(PresenceOfMind, 0, 50, target.HealthPercent > 80);
+            if (TryCastRotationSpell(PresenceOfMind, 0, 50, ArcaneMageRotation.ShouldUseBurstCooldown(target.HealthPercent)))
+                return;
 
-            TryCastSpell(ArcanePower, 0, 50, target.HealthPercent > 80);
+            if (TryCastRotationSpell(ArcanePower, 0, 50, ArcaneMageRotation.ShouldUseBurstCooldown(target.HealthPercent)))
+                return;
 
-            TryCastSpell(Counterspell, 0, 29, target.Mana > 0 && target.IsCasting);
+            if (TryCastRotationSpell(Counterspell, 0, 29, ArcaneMageRotation.ShouldCounterspell(target.Mana, target.IsCasting)))
+                return;
 
-            TryCastSpell(ManaShield, 0, 50, ArcaneMageRotation.ShouldManaShield(player.HasBuff(ManaShield), player.HealthPercent));
+            if (TryCastRotationSpell(ManaShield, 0, 50, ArcaneMageRotation.ShouldManaShield(player.HasBuff(ManaShield), player.HealthPercent)))
+                return;
 
-            TryCastSpell(FireBlast, 0, 19, !player.HasBuff(Clearcasting));
+            if (TryCastRotationSpell(FireBlast, 0, 19, ArcaneMageRotation.ShouldFireBlast(player.HasBuff(Clearcasting))))
+                return;
 
-            TryCastSpell(FrostNova, 0, 10, !ObjectManager.Units.Any(u => u.Guid != target.Guid && u.Health > 0 && u.Position.DistanceTo(player.Position) < 15), callback: FrostNovaCallback);
+            var otherUnitsNearby = ObjectManager.Units.Any(u => u.Guid != target.Guid && u.Health > 0 && u.Position.DistanceTo(player.Position) < 15);
+            if (TryCastRotationSpell(FrostNova, 0, 10, ArcaneMageRotation.ShouldFrostNova(otherUnitsNearby), callback: FrostNovaCallback))
+                return;
 
-            TryCastSpell(Fireball, 0, 34, ArcaneMageRotation.ShouldFireball(player.Level, player.HasBuff(PresenceOfMind)));
+            if (TryCastRotationSpell(Fireball, 0, 34, ArcaneMageRotation.ShouldFireball(player.Level, player.HasBuff(PresenceOfMind))))
+                return;
 
-            TryCastSpell(ArcaneMissiles, 0, 29, ArcaneMageRotation.ShouldArcaneMissiles(player.Level));
+            if (TryCastRotationSpell(ArcaneMissiles, 0, 29, ArcaneMageRotation.ShouldArcaneMissiles(player.Level)))
+                return;
         }
 
         Action FrostNovaCallback => () =>

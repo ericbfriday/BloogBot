@@ -120,67 +120,94 @@ namespace ShadowPriestBot
             if (!hasWand)
                 player.LuaCall(AutoAttackLuaScript);
 
+            // Don't attempt spells without line of sight; close distance until we have it.
+            if (!player.InLosWith(target.Position))
+            {
+                var nextWaypoint = Navigation.GetNextWaypoint(ObjectManager.MapId, player.Position, target.Position, false);
+                player.MoveToward(nextWaypoint);
+                return;
+            }
+
             // ----- COMBAT ROTATION -----
             var useWand = (hasWand && player.ManaPercent <= 10 && !player.IsCasting && !player.IsChanneling) || target.CreatureType == CreatureType.Totem;
             if (useWand)
-                player.LuaCall(WandLuaScript);
-            else
             {
-                var aggressors = ObjectManager.Aggressors;
+                player.LuaCall(WandLuaScript);
+                return;
+            }
 
-                TryCastSpell(ShadowForm, 0, int.MaxValue, !player.HasBuff(ShadowForm));
+            if (TryCastSpell(ShadowForm, 0, int.MaxValue, !player.HasBuff(ShadowForm)))
+                return;
 
-                TryCastSpell(VampiricEmbrace, 0, 29, player.HealthPercent < 100 && !target.HasDebuff(VampiricEmbrace) && target.HealthPercent > 50);
+            if (TryCastSpell(VampiricEmbrace, 0, 29, ShadowPriestPowerlevelCombatRotation.ShouldVampiricEmbrace(
+                player.HealthPercent, target.HasDebuff(VampiricEmbrace), target.HealthPercent)))
+                return;
 
-                var noNeutralsNearby = !ObjectManager.Units.Any(u => u.Guid != target.Guid && u.UnitReaction == UnitReaction.Neutral && u.Position.DistanceTo(player.Position) <= 10);
-                TryCastSpell(PsychicScream, 0, 7, (target.Position.DistanceTo(player.Position) < 8 && !player.HasBuff(PowerWordShield)) || ObjectManager.Aggressors.Count() > 1 && target.CreatureType != CreatureType.Elemental);
+            if (TryCastSpell(PsychicScream, 0, 7, ShadowPriestPowerlevelCombatRotation.ShouldPsychicScream(
+                distanceToTarget, player.HasBuff(PowerWordShield), ObjectManager.Aggressors.Count(), target.CreatureType == CreatureType.Elemental)))
+                return;
 
-                TryCastSpell(ShadowWordPain, 0, 29, target.HealthPercent > 70 && !target.HasDebuff(ShadowWordPain));
+            if (TryCastSpell(ShadowWordPain, 0, 29, ShadowPriestPowerlevelCombatRotation.ShouldShadowWordPain(
+                target.HealthPercent, target.HasDebuff(ShadowWordPain))))
+                return;
 
-                TryCastSpell(DispelMagic, 0, int.MaxValue, player.HasMagicDebuff, castOnSelf: true);
+            if (TryCastSpell(DispelMagic, 0, int.MaxValue, player.HasMagicDebuff, castOnSelf: true))
+                return;
 
-                if (player.KnowsSpell(AbolishDisease))
-                    TryCastSpell(AbolishDisease, 0, int.MaxValue, player.IsDiseased && !player.HasBuff(ShadowForm), castOnSelf: true);
-                else if (player.KnowsSpell(CureDisease))
-                    TryCastSpell(CureDisease, 0, int.MaxValue, player.IsDiseased && !player.HasBuff(ShadowForm), castOnSelf: true);
+            var shouldCureDisease = ShadowPriestPowerlevelCombatRotation.ShouldCureDisease(player.IsDiseased, player.HasBuff(ShadowForm));
+            if (player.KnowsSpell(AbolishDisease))
+            {
+                if (TryCastSpell(AbolishDisease, 0, int.MaxValue, shouldCureDisease, castOnSelf: true))
+                    return;
+            }
+            else if (TryCastSpell(CureDisease, 0, int.MaxValue, shouldCureDisease, castOnSelf: true))
+                return;
 
-                TryCastSpell(InnerFire, 0, int.MaxValue, !player.HasBuff(InnerFire));
+            if (TryCastSpell(InnerFire, 0, int.MaxValue, !player.HasBuff(InnerFire)))
+                return;
 
-                TryCastSpell(PowerWordShield, 0, int.MaxValue, !player.HasDebuff(WeakenedSoul) && !player.HasBuff(PowerWordShield) && (target.HealthPercent > 20 || player.HealthPercent < 10), castOnSelf: true);
+            if (TryCastSpell(PowerWordShield, 0, int.MaxValue, ShadowPriestPowerlevelCombatRotation.ShouldPowerWordShield(
+                player.HasDebuff(WeakenedSoul), player.HasBuff(PowerWordShield), target.HealthPercent, player.HealthPercent), castOnSelf: true))
+                return;
 
-                TryCastSpell(MindBlast, 0, 29);
+            if (TryCastSpell(MindBlast, 0, 29))
+                return;
 
-                if (player.KnowsSpell(MindFlay) && target.Position.DistanceTo(player.Position) <= 19 && (!player.KnowsSpell(PowerWordShield) || player.HasBuff(PowerWordShield)))
-                    TryCastSpell(MindFlay, 0, 19);
-                else
-                    TryCastSpell(Smite, 0, 29, !player.HasBuff(ShadowForm));
+            if (ShadowPriestPowerlevelCombatRotation.ShouldMindFlay(
+                player.KnowsSpell(MindFlay), distanceToTarget, player.KnowsSpell(PowerWordShield), player.HasBuff(PowerWordShield)))
+            {
+                if (TryCastSpell(MindFlay, 0, 19))
+                    return;
+            }
+            else if (TryCastSpell(Smite, 0, 29, !player.HasBuff(ShadowForm)))
+                return;
 
-                if (powerlevelTarget.HealthPercent < 50)
+            if (powerlevelTarget.HealthPercent < 50)
+            {
+                var knowsLesserHeal = player.KnowsSpell(LesserHeal);
+                var isLesserHealReady = knowsLesserHeal && player.IsSpellReady(LesserHeal);
+                var lesserHealManaCost = knowsLesserHeal ? player.GetManaCost(LesserHeal) : int.MaxValue;
+                var distanceToPowerlevelTarget = player.Position.DistanceTo(powerlevelTarget.Position);
+
+                if (ShadowPriestPowerlevelCombatRotation.ShouldHealPowerlevelTarget(
+                    powerlevelTarget.HealthPercent,
+                    knowsLesserHeal,
+                    isLesserHealReady,
+                    player.Mana,
+                    lesserHealManaCost,
+                    distanceToPowerlevelTarget,
+                    player.IsStunned,
+                    player.IsCasting,
+                    player.IsChanneling))
                 {
-                    var knowsLesserHeal = player.KnowsSpell(LesserHeal);
-                    var isLesserHealReady = knowsLesserHeal && player.IsSpellReady(LesserHeal);
-                    var lesserHealManaCost = knowsLesserHeal ? player.GetManaCost(LesserHeal) : int.MaxValue;
-                    var distanceToPowerlevelTarget = player.Position.DistanceTo(powerlevelTarget.Position);
-
-                    if (ShadowPriestPowerlevelCombatRotation.ShouldHealPowerlevelTarget(
-                        powerlevelTarget.HealthPercent,
-                        knowsLesserHeal,
-                        isLesserHealReady,
-                        player.Mana,
-                        lesserHealManaCost,
-                        distanceToPowerlevelTarget,
-                        player.IsStunned,
-                        player.IsCasting,
-                        player.IsChanneling))
-                    {
-                        player.SetTarget(powerlevelTarget.Guid);
-                        TryCastSpell(LesserHeal, 0, 40, rangeTarget: powerlevelTarget);
-                    }
+                    player.SetTarget(powerlevelTarget.Guid);
+                    if (TryCastSpell(LesserHeal, 0, 40, rangeTarget: powerlevelTarget))
+                        return;
                 }
             }
         }
 
-        void TryCastSpell(string name, int minRange, int maxRange, bool condition = true, Action callback = null, bool castOnSelf = false, WoWUnit rangeTarget = null)
+        bool TryCastSpell(string name, int minRange, int maxRange, bool condition = true, Action callback = null, bool castOnSelf = false, WoWUnit rangeTarget = null)
         {
             var knowsSpell = player.KnowsSpell(name);
             var isSpellReady = knowsSpell && player.IsSpellReady(name);
@@ -203,7 +230,10 @@ namespace ShadowPriestBot
                 var castOnSelfString = castOnSelf ? ",1" : "";
                 player.LuaCall($"CastSpellByName(\"{name}\"{castOnSelfString})");
                 callback?.Invoke();
+                return true;
             }
+
+            return false;
         }
 
         void OnErrorMessageCallback(object sender, OnUiMessageArgs e)

@@ -51,6 +51,36 @@ namespace ElementalShamanBot
             (targetHealthPercent >= 50 || targetIsNatureImmune) &&
             !targetIsFireImmune;
 
+        // Totem drops: each is gated on the totem not already being live nearby so we
+        // don't waste a global cooldown redropping an active totem.
+        internal static bool ShouldGroundingTotem(bool anyAggressorCasting, int targetMana) =>
+            anyAggressorCasting && targetMana > 0;
+
+        internal static bool ShouldTremorTotem(bool targetIsFearingCreature, bool tremorTotemNearby) =>
+            targetIsFearingCreature && !tremorTotemNearby;
+
+        internal static bool ShouldStoneclawTotem(int aggressorCount) =>
+            aggressorCount > 1;
+
+        internal static bool ShouldStoneskinTotem(int targetMana, bool earthTotemNearby) =>
+            targetMana == 0 && !earthTotemNearby;
+
+        internal static bool ShouldSearingTotem(
+            int targetHealthPercent,
+            bool targetIsFireImmune,
+            float distanceToTarget,
+            bool searingTotemNearby) =>
+            targetHealthPercent > 70 &&
+            !targetIsFireImmune &&
+            distanceToTarget < 20 &&
+            !searingTotemNearby;
+
+        internal static bool ShouldManaSpringTotem(bool manaSpringTotemNearby) =>
+            !manaSpringTotemNearby;
+
+        internal static bool ShouldLightningShield(bool targetIsNatureImmune, bool hasLightningShield) =>
+            !targetIsNatureImmune && !hasLightningShield;
+
         internal static string SelectWeaponEnchant(
             bool knowsRockbiterWeapon,
             bool knowsFlametongueWeapon,

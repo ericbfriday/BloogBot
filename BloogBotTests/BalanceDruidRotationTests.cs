@@ -40,5 +40,33 @@ namespace BloogBotTests
             Assert.IsFalse(BalanceDruidRotation.ShouldInsectSwarm(false, 20, false));
             Assert.IsFalse(BalanceDruidRotation.ShouldInsectSwarm(false, 50, true));
         }
+
+        [TestMethod]
+        public void MoonfireIsRefreshedOnlyAfterItFallsOff()
+        {
+            Assert.IsTrue(BalanceDruidRotation.ShouldMoonfire(false));
+            Assert.IsFalse(BalanceDruidRotation.ShouldMoonfire(true));
+        }
+
+        [TestMethod]
+        public void WrathIsHeldAgainstNatureImmuneTargets()
+        {
+            Assert.IsTrue(BalanceDruidRotation.ShouldWrath(false));
+            Assert.IsFalse(BalanceDruidRotation.ShouldWrath(true));
+        }
+
+        [TestMethod]
+        public void InnervateOnlyWhenNearlyOutOfMana()
+        {
+            Assert.IsTrue(BalanceDruidRotation.ShouldInnervate(9));
+            Assert.IsFalse(BalanceDruidRotation.ShouldInnervate(10));
+        }
+
+        [TestMethod]
+        public void RegrowthRescuesAWoundedPowerlevelTarget()
+        {
+            Assert.IsTrue(BalanceDruidRotation.ShouldRegrowth(39));
+            Assert.IsFalse(BalanceDruidRotation.ShouldRegrowth(40));
+        }
     }
 }

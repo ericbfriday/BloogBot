@@ -71,5 +71,61 @@ namespace BloogBotTests
             Assert.IsNull(ElementalShamanRotation.SelectWeaponEnchant(true, true, true, false));
             Assert.IsNull(ElementalShamanRotation.SelectWeaponEnchant(false, false, false, false));
         }
+
+        [TestMethod]
+        public void GroundingTotemDropsAgainstCastingManaUsers()
+        {
+            Assert.IsTrue(ElementalShamanRotation.ShouldGroundingTotem(true, 100));
+            Assert.IsFalse(ElementalShamanRotation.ShouldGroundingTotem(false, 100));
+            Assert.IsFalse(ElementalShamanRotation.ShouldGroundingTotem(true, 0));
+        }
+
+        [TestMethod]
+        public void TremorTotemIsNotRedroppedWhileActive()
+        {
+            Assert.IsTrue(ElementalShamanRotation.ShouldTremorTotem(true, false));
+            Assert.IsFalse(ElementalShamanRotation.ShouldTremorTotem(true, true));
+            Assert.IsFalse(ElementalShamanRotation.ShouldTremorTotem(false, false));
+        }
+
+        [TestMethod]
+        public void StoneclawTotemNeedsMultipleAttackers()
+        {
+            Assert.IsTrue(ElementalShamanRotation.ShouldStoneclawTotem(2));
+            Assert.IsFalse(ElementalShamanRotation.ShouldStoneclawTotem(1));
+        }
+
+        [TestMethod]
+        public void StoneskinTotemDropsForManalessTargetsWhenNoEarthTotemIsUp()
+        {
+            Assert.IsTrue(ElementalShamanRotation.ShouldStoneskinTotem(0, false));
+            Assert.IsFalse(ElementalShamanRotation.ShouldStoneskinTotem(0, true));
+            Assert.IsFalse(ElementalShamanRotation.ShouldStoneskinTotem(1, false));
+        }
+
+        [TestMethod]
+        public void SearingTotemDropsOnHealthyInRangeFireVulnerableTargets()
+        {
+            Assert.IsTrue(ElementalShamanRotation.ShouldSearingTotem(71, false, 19, false));
+            Assert.IsFalse(ElementalShamanRotation.ShouldSearingTotem(70, false, 19, false));
+            Assert.IsFalse(ElementalShamanRotation.ShouldSearingTotem(71, true, 19, false));
+            Assert.IsFalse(ElementalShamanRotation.ShouldSearingTotem(71, false, 20, false));
+            Assert.IsFalse(ElementalShamanRotation.ShouldSearingTotem(71, false, 19, true));
+        }
+
+        [TestMethod]
+        public void ManaSpringTotemIsNotRedroppedWhileActive()
+        {
+            Assert.IsTrue(ElementalShamanRotation.ShouldManaSpringTotem(false));
+            Assert.IsFalse(ElementalShamanRotation.ShouldManaSpringTotem(true));
+        }
+
+        [TestMethod]
+        public void LightningShieldIsKeptUpExceptOnNatureImmunes()
+        {
+            Assert.IsTrue(ElementalShamanRotation.ShouldLightningShield(false, false));
+            Assert.IsFalse(ElementalShamanRotation.ShouldLightningShield(true, false));
+            Assert.IsFalse(ElementalShamanRotation.ShouldLightningShield(false, true));
+        }
     }
 }

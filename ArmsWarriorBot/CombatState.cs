@@ -49,53 +49,72 @@ namespace ArmsWarriorBot
 
             var aggressors = ObjectManager.Aggressors.ToList();
 
-            // Use these abilities when fighting any number of mobs.   
-            TryUseAbility(Bloodrage, condition: target.HealthPercent > 50);
+            // Use these abilities when fighting any number of mobs.
+            if (TryUseRotationAbility(Bloodrage, condition: target.HealthPercent > 50)) return;
 
-            TryUseAbilityById(BloodFury, 4, condition: target.HealthPercent > 80);
+            if (TryUseRotationAbilityById(BloodFury, 4, condition: target.HealthPercent > 80)) return;
 
-            TryUseAbility(Overpower, 5, player.CanOverpower);
+            if (TryUseRotationAbility(Overpower, 5, condition: player.CanOverpower)) return;
 
-            TryUseAbility(Execute, 15, target.HealthPercent < 20);
+            if (TryUseRotationAbility(Execute, 15, condition: target.HealthPercent < 20)) return;
 
             // Use these abilities if you are fighting exactly one mob.
             if (aggressors.Count() == 1)
             {
-                TryUseAbility(Hamstring, 10, ArmsWarriorRotation.ShouldHamstring(
+                if (TryUseRotationAbility(Hamstring, 10, condition: ArmsWarriorRotation.ShouldHamstring(
                     target.CreatureType == CreatureType.Humanoid,
                     target.Name,
                     target.HealthPercent,
-                    target.HasDebuff(Hamstring)));
+                    target.HasDebuff(Hamstring)))) return;
 
-                TryUseAbility(BattleShout, 10, !player.HasBuff(BattleShout));
+                if (TryUseRotationAbility(BattleShout, 10, condition: !player.HasBuff(BattleShout))) return;
 
-                TryUseAbility(Rend, 10, ArmsWarriorRotation.ShouldRend(target.HealthPercent, target.HasDebuff(Rend), target.CreatureType));
+                if (TryUseRotationAbility(Rend, 10, condition: ArmsWarriorRotation.ShouldRend(target.HealthPercent, target.HasDebuff(Rend), target.CreatureType))) return;
 
                 var sunderDebuff = target.GetDebuffs(LuaTarget.Target).FirstOrDefault(f => f.Icon == SunderArmorIcon);
-                TryUseAbility(SunderArmor, 15, ArmsWarriorRotation.ShouldSunderArmor(
+                if (TryUseRotationAbility(SunderArmor, 15, condition: ArmsWarriorRotation.ShouldSunderArmor(
                     sunderDebuff?.StackCount,
                     target.Level,
                     player.Level,
                     target.Health,
-                    ArmsWarriorRotation.IsSunderTarget(target.Name)));
+                    ArmsWarriorRotation.IsSunderTarget(target.Name)))) return;
 
-                TryUseAbility(MortalStrike, 30);
+                if (TryUseRotationAbility(MortalStrike, 30)) return;
 
-                TryUseAbility(HeroicStrike, ArmsWarriorRotation.HeroicStrikeRageRequirement(player.Level), target.HealthPercent > 30);
+                if (TryUseRotationAbility(HeroicStrike, ArmsWarriorRotation.HeroicStrikeRageRequirement(player.Level), condition: target.HealthPercent > 30)) return;
             }
 
             // Use these abilities if you are fighting TWO OR MORE mobs at once.
             if (aggressors.Count() >= 2)
             {
-                TryUseAbility(IntimidatingShout, 25, !(target.HasDebuff(IntimidatingShout) || player.HasBuff(Retaliation)) && aggressors.All(a => a.Position.DistanceTo(player.Position) < 10) && !ObjectManager.Units.Any(u => u.Guid != target.Guid && u.Position.DistanceTo(player.Position) < 10 && u.UnitReaction == UnitReaction.Neutral));
+                if (TryUseRotationAbility(IntimidatingShout, 25, condition: ArmsWarriorRotation.ShouldIntimidatingShout(
+                    target.HasDebuff(IntimidatingShout),
+                    player.HasBuff(Retaliation),
+                    aggressors.All(a => a.Position.DistanceTo(player.Position) < 10),
+                    ObjectManager.Units.Any(u => u.Guid != target.Guid && u.Position.DistanceTo(player.Position) < 10 && u.UnitReaction == UnitReaction.Neutral)))) return;
 
-                TryUseAbility(Retaliation, 0, player.IsSpellReady(Retaliation) && ObjectManager.Aggressors.All(a => a.Position.DistanceTo(player.Position) < 10) && !ObjectManager.Aggressors.Any(a => a.HasDebuff(IntimidatingShout)));
+                if (TryUseRotationAbility(Retaliation, 0, condition: ArmsWarriorRotation.ShouldRetaliation(
+                    player.IsSpellReady(Retaliation),
+                    ObjectManager.Aggressors.All(a => a.Position.DistanceTo(player.Position) < 10),
+                    ObjectManager.Aggressors.Any(a => a.HasDebuff(IntimidatingShout))))) return;
 
-                TryUseAbility(DemoralizingShout, 10, aggressors.Any(a => !a.HasDebuff(DemoralizingShout) && a.HealthPercent > 50) && aggressors.All(a => a.Position.DistanceTo(player.Position) < 10) && (!player.IsSpellReady(IntimidatingShout) || player.HasBuff(Retaliation)) && !ObjectManager.Units.Any(u => (u.Guid != target.Guid && u.Position.DistanceTo(player.Position) < 10 && u.UnitReaction == UnitReaction.Neutral) || u.HasDebuff(IntimidatingShout)));
+                if (TryUseRotationAbility(DemoralizingShout, 10, condition: ArmsWarriorRotation.ShouldDemoralizingShout(
+                    aggressors.Any(a => !a.HasDebuff(DemoralizingShout) && a.HealthPercent > 50),
+                    aggressors.All(a => a.Position.DistanceTo(player.Position) < 10),
+                    player.IsSpellReady(IntimidatingShout),
+                    player.HasBuff(Retaliation),
+                    ObjectManager.Units.Any(u => (u.Guid != target.Guid && u.Position.DistanceTo(player.Position) < 10 && u.UnitReaction == UnitReaction.Neutral) || u.HasDebuff(IntimidatingShout))))) return;
 
-                TryUseAbility(ThunderClap, 20, aggressors.Any(a => !a.HasDebuff(ThunderClap) && a.HealthPercent > 50) && aggressors.All(a => a.Position.DistanceTo(player.Position) < 8) && (!player.IsSpellReady(IntimidatingShout) || player.HasBuff(Retaliation)) && !ObjectManager.Units.Any(u => (u.Guid != target.Guid && u.Position.DistanceTo(player.Position) < 8 && u.UnitReaction == UnitReaction.Neutral) || u.HasDebuff(IntimidatingShout)));
+                if (TryUseRotationAbility(ThunderClap, 20, condition: ArmsWarriorRotation.ShouldThunderClap(
+                    aggressors.Any(a => !a.HasDebuff(ThunderClap) && a.HealthPercent > 50),
+                    aggressors.All(a => a.Position.DistanceTo(player.Position) < 8),
+                    player.IsSpellReady(IntimidatingShout),
+                    player.HasBuff(Retaliation),
+                    ObjectManager.Units.Any(u => (u.Guid != target.Guid && u.Position.DistanceTo(player.Position) < 8 && u.UnitReaction == UnitReaction.Neutral) || u.HasDebuff(IntimidatingShout))))) return;
 
-                TryUseAbility(SweepingStrikes, 30, !player.HasBuff(SweepingStrikes) && target.HealthPercent > 30);
+                if (TryUseRotationAbility(SweepingStrikes, 30, condition: ArmsWarriorRotation.ShouldSweepingStrikes(
+                    player.HasBuff(SweepingStrikes),
+                    target.HealthPercent))) return;
 
                 if (ArmsWarriorRotation.ShouldUseSingleTargetFillersInAoe(
                     target.HasDebuff(ThunderClap),
@@ -106,11 +125,11 @@ namespace ArmsWarriorBot
                     player.HasBuff(SweepingStrikes),
                     player.IsSpellReady(SweepingStrikes)))
                 {
-                    TryUseAbility(Rend, 10, ArmsWarriorRotation.ShouldRend(target.HealthPercent, target.HasDebuff(Rend), target.CreatureType));
+                    if (TryUseRotationAbility(Rend, 10, condition: ArmsWarriorRotation.ShouldRend(target.HealthPercent, target.HasDebuff(Rend), target.CreatureType))) return;
 
-                    TryUseAbility(MortalStrike, 30);
+                    if (TryUseRotationAbility(MortalStrike, 30)) return;
 
-                    TryUseAbility(HeroicStrike, ArmsWarriorRotation.HeroicStrikeRageRequirement(player.Level), target.HealthPercent > 30);
+                    if (TryUseRotationAbility(HeroicStrike, ArmsWarriorRotation.HeroicStrikeRageRequirement(player.Level), condition: target.HealthPercent > 30)) return;
                 }
             }
         }

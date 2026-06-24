@@ -159,5 +159,210 @@ namespace BloogBotTests
                 hasSweepingStrikes: false,
                 sweepingStrikesReady: false));
         }
+
+        [TestMethod]
+        public void IntimidatingShoutFearsAClusteredPack()
+        {
+            Assert.IsTrue(ArmsWarriorRotation.ShouldIntimidatingShout(
+                targetHasIntimidatingShout: false,
+                hasRetaliation: false,
+                allAggressorsInRange: true,
+                neutralBystanderInRange: false));
+        }
+
+        [TestMethod]
+        public void IntimidatingShoutIsHeldBackWhenUnsafe()
+        {
+            // Already feared.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldIntimidatingShout(
+                targetHasIntimidatingShout: true,
+                hasRetaliation: false,
+                allAggressorsInRange: true,
+                neutralBystanderInRange: false));
+
+            // Retaliation is up: don't scatter the pack.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldIntimidatingShout(
+                targetHasIntimidatingShout: false,
+                hasRetaliation: true,
+                allAggressorsInRange: true,
+                neutralBystanderInRange: false));
+
+            // An aggressor is out of range.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldIntimidatingShout(
+                targetHasIntimidatingShout: false,
+                hasRetaliation: false,
+                allAggressorsInRange: false,
+                neutralBystanderInRange: false));
+
+            // A neutral mob nearby would get pulled.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldIntimidatingShout(
+                targetHasIntimidatingShout: false,
+                hasRetaliation: false,
+                allAggressorsInRange: true,
+                neutralBystanderInRange: true));
+        }
+
+        [TestMethod]
+        public void RetaliationPopsOnAClusteredUnfearedPack()
+        {
+            Assert.IsTrue(ArmsWarriorRotation.ShouldRetaliation(
+                retaliationReady: true,
+                allAggressorsInRange: true,
+                anyAggressorHasIntimidatingShout: false));
+        }
+
+        [TestMethod]
+        public void RetaliationIsHeldBackWhenUnsafe()
+        {
+            // Not off cooldown.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldRetaliation(
+                retaliationReady: false,
+                allAggressorsInRange: true,
+                anyAggressorHasIntimidatingShout: false));
+
+            // An aggressor is out of range.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldRetaliation(
+                retaliationReady: true,
+                allAggressorsInRange: false,
+                anyAggressorHasIntimidatingShout: false));
+
+            // Something is feared and would run out of cleave range.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldRetaliation(
+                retaliationReady: true,
+                allAggressorsInRange: true,
+                anyAggressorHasIntimidatingShout: true));
+        }
+
+        [TestMethod]
+        public void DemoralizingShoutFillsWhenIntimidatingShoutIsUnavailable()
+        {
+            Assert.IsTrue(ArmsWarriorRotation.ShouldDemoralizingShout(
+                anyAggressorNeedsDemoralizingShout: true,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: false,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: false));
+
+            // Intimidating Shout still on cooldown but Retaliation is up: still fine to shout.
+            Assert.IsTrue(ArmsWarriorRotation.ShouldDemoralizingShout(
+                anyAggressorNeedsDemoralizingShout: true,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: true,
+                hasRetaliation: true,
+                neutralOrFearedUnitInRange: false));
+        }
+
+        [TestMethod]
+        public void DemoralizingShoutIsHeldBackWhenUnsafe()
+        {
+            // Nobody needs the debuff.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldDemoralizingShout(
+                anyAggressorNeedsDemoralizingShout: false,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: false,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: false));
+
+            // An aggressor is out of range.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldDemoralizingShout(
+                anyAggressorNeedsDemoralizingShout: true,
+                allAggressorsInRange: false,
+                intimidatingShoutReady: false,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: false));
+
+            // Intimidating Shout is ready (and we're not retaliating): prefer the fear.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldDemoralizingShout(
+                anyAggressorNeedsDemoralizingShout: true,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: true,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: false));
+
+            // A neutral or feared mob is nearby.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldDemoralizingShout(
+                anyAggressorNeedsDemoralizingShout: true,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: false,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: true));
+        }
+
+        [TestMethod]
+        public void ThunderClapFillsWhenIntimidatingShoutIsUnavailable()
+        {
+            Assert.IsTrue(ArmsWarriorRotation.ShouldThunderClap(
+                anyAggressorNeedsThunderClap: true,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: false,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: false));
+
+            // Intimidating Shout on cooldown but Retaliation is up.
+            Assert.IsTrue(ArmsWarriorRotation.ShouldThunderClap(
+                anyAggressorNeedsThunderClap: true,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: true,
+                hasRetaliation: true,
+                neutralOrFearedUnitInRange: false));
+        }
+
+        [TestMethod]
+        public void ThunderClapIsHeldBackWhenUnsafe()
+        {
+            // Nobody needs the debuff.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldThunderClap(
+                anyAggressorNeedsThunderClap: false,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: false,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: false));
+
+            // An aggressor is out of range.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldThunderClap(
+                anyAggressorNeedsThunderClap: true,
+                allAggressorsInRange: false,
+                intimidatingShoutReady: false,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: false));
+
+            // Intimidating Shout is ready (and we're not retaliating): prefer the fear.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldThunderClap(
+                anyAggressorNeedsThunderClap: true,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: true,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: false));
+
+            // A neutral or feared mob is nearby.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldThunderClap(
+                anyAggressorNeedsThunderClap: true,
+                allAggressorsInRange: true,
+                intimidatingShoutReady: false,
+                hasRetaliation: false,
+                neutralOrFearedUnitInRange: true));
+        }
+
+        [TestMethod]
+        public void SweepingStrikesIsRefreshedWhileTargetIsHealthy()
+        {
+            Assert.IsTrue(ArmsWarriorRotation.ShouldSweepingStrikes(
+                hasSweepingStrikes: false,
+                targetHealthPercent: 31));
+        }
+
+        [TestMethod]
+        public void SweepingStrikesIsNotRefreshedOrUsedLate()
+        {
+            // Already active.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldSweepingStrikes(
+                hasSweepingStrikes: true,
+                targetHealthPercent: 80));
+
+            // Target too low to be worth it.
+            Assert.IsFalse(ArmsWarriorRotation.ShouldSweepingStrikes(
+                hasSweepingStrikes: false,
+                targetHealthPercent: 30));
+        }
     }
 }

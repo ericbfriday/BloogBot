@@ -66,5 +66,28 @@ namespace FeralDruidBot
 
         internal static bool ShouldRip(bool targetHasRip, int comboPoints) =>
             !targetHasRip && comboPoints >= 5;
+
+        // Demoralizing Roar is an AoE debuff — only worth it against a pack.
+        internal static bool ShouldDemoralizingRoar(int aggressorCount, bool targetHasDemoralizingRoar) =>
+            aggressorCount > 1 && !targetHasDemoralizingRoar;
+
+        // Damage cooldowns are saved for targets that will live long enough to use them.
+        internal static bool ShouldBerserk(int targetHealthPercent, bool hasBerserk) =>
+            targetHealthPercent > 30 && !hasBerserk;
+
+        internal static bool ShouldTigersFury(int targetHealthPercent, bool hasTigersFury) =>
+            targetHealthPercent > 30 && !hasTigersFury;
+
+        // Keep the armor-shred debuff up.
+        internal static bool ShouldFaerieFire(bool targetHasFaerieFire) =>
+            !targetHasFaerieFire;
+
+        // Ferocious Bite is the burst finisher at a full combo bar.
+        internal static bool ShouldFerociousBite(int comboPoints) =>
+            comboPoints >= 5;
+
+        // Rake's bleed is only worth applying on a healthy target that lacks it.
+        internal static bool ShouldRake(int targetHealthPercent, bool targetHasRake) =>
+            targetHealthPercent > 50 && !targetHasRake;
     }
 }

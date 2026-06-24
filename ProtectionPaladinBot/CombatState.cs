@@ -59,54 +59,71 @@ namespace ProtectionPaladinBot
             if (base.Update())
                 return;
 
-            TryCastSpell(DivinePlea, player.ManaPercent < 50);
+            // Melee hybrid — no proactive LOS gate; the base closes the distance.
 
-            TryCastSpell(LayOnHands, ProtectionPaladinRotation.ShouldLayOnHands(player.Mana >= player.GetManaCost(HolyLight), player.HealthPercent), castOnSelf: true);
+            if (TryCastNoTargetRotationSpell(DivinePlea, ProtectionPaladinRotation.ShouldDivinePlea(player.ManaPercent)))
+                return;
 
-            TryCastSpell(Purify, player.IsPoisoned || player.IsDiseased, castOnSelf: true);
+            if (TryCastRotationSpell(LayOnHands, ProtectionPaladinRotation.ShouldLayOnHands(player.Mana >= player.GetManaCost(HolyLight), player.HealthPercent), castOnSelf: true))
+                return;
 
-            TryCastSpell(RighteousFury, !player.HasBuff(RighteousFury));
+            if (TryCastRotationSpell(Purify, ProtectionPaladinRotation.ShouldPurify(player.IsPoisoned, player.IsDiseased), castOnSelf: true))
+                return;
+
+            if (TryCastNoTargetRotationSpell(RighteousFury, !player.HasBuff(RighteousFury)))
+                return;
 
             var aura = ProtectionPaladinRotation.SelectAura(
                 player.KnowsSpell(RetributionAura),
                 player.HasBuff(DevotionAura),
                 player.HasBuff(RetributionAura));
-            if (aura != null)
-                TryCastSpell(aura);
+            if (aura != null && TryCastNoTargetRotationSpell(aura))
+                return;
 
-            TryCastSpell(Exorcism, 0, 30, target.CreatureType == CreatureType.Undead || target.CreatureType == CreatureType.Demon);
+            if (TryCastRotationSpell(Exorcism, 0, 30, ProtectionPaladinRotation.ShouldExorcism(
+                target.CreatureType == CreatureType.Undead || target.CreatureType == CreatureType.Demon)))
+                return;
 
-            TryCastSpell(HammerOfJustice, 0, 10, (target.CreatureType != CreatureType.Humanoid || (target.CreatureType == CreatureType.Humanoid && target.HealthPercent < 20)));
+            if (TryCastRotationSpell(HammerOfJustice, 0, 10, ProtectionPaladinRotation.ShouldHammerOfJustice(
+                target.CreatureType == CreatureType.Humanoid, target.HealthPercent)))
+                return;
 
-            TryCastSpell(HammerOfTheRighteous, 0, 4);
+            if (TryCastRotationSpell(HammerOfTheRighteous, 0, 4))
+                return;
 
-            TryCastSpell(Consecration, ObjectManager.Aggressors.Count() > 1);
+            if (TryCastNoTargetRotationSpell(Consecration, ProtectionPaladinRotation.ShouldConsecration(ObjectManager.Aggressors.Count())))
+                return;
 
             // for judgements - in WotLK they reworked Paladins to have "Judgement of Light" and "Judgement of Wisdom" instead of "Judgement".
             // we may want different bot .dlls for each client?
             if (ClientHelper.ClientVersion == ClientVersion.WotLK)
             {
                 var hasActiveSeal = player.Buffs.Any(b => b.Name.StartsWith("Seal of"));
-                TryCastSpell(JudgementOfWisdom, 0, 10, ProtectionPaladinRotation.ShouldJudgementOfWisdom(target.HasDebuff(JudgementOfWisdom), hasActiveSeal));
-                TryCastSpell(JudgementOfLight, 0, 10, ProtectionPaladinRotation.ShouldJudgementOfLight(target.HasDebuff(JudgementOfLight), hasActiveSeal, player.KnowsSpell(JudgementOfWisdom)));
+                if (TryCastRotationSpell(JudgementOfWisdom, 0, 10, ProtectionPaladinRotation.ShouldJudgementOfWisdom(target.HasDebuff(JudgementOfWisdom), hasActiveSeal)))
+                    return;
+                if (TryCastRotationSpell(JudgementOfLight, 0, 10, ProtectionPaladinRotation.ShouldJudgementOfLight(target.HasDebuff(JudgementOfLight), hasActiveSeal, player.KnowsSpell(JudgementOfWisdom))))
+                    return;
             }
-            else
-            {
-                TryCastSpell(Judgement, 0, 10, ProtectionPaladinRotation.ShouldUseLegacyJudgement(
-                    player.HasBuff(SealOfTheCrusader),
-                    player.HasBuff(SealOfRighteousness),
-                    player.ManaPercent,
-                    target.HealthPercent));
-            }
+            else if (TryCastRotationSpell(Judgement, 0, 10, ProtectionPaladinRotation.ShouldUseLegacyJudgement(
+                player.HasBuff(SealOfTheCrusader),
+                player.HasBuff(SealOfRighteousness),
+                player.ManaPercent,
+                target.HealthPercent)))
+                return;
 
-            TryCastSpell(SealOfTheCrusader, !player.HasBuff(SealOfTheCrusader) && !target.HasDebuff(JudgementOfTheCrusader));
+            if (TryCastNoTargetRotationSpell(SealOfTheCrusader, ProtectionPaladinRotation.ShouldSealOfTheCrusader(
+                player.HasBuff(SealOfTheCrusader), target.HasDebuff(JudgementOfTheCrusader))))
+                return;
 
-            TryCastSpell(SealOfRighteousness, ProtectionPaladinRotation.ShouldSealOfRighteousness(
+            if (TryCastNoTargetRotationSpell(SealOfRighteousness, ProtectionPaladinRotation.ShouldSealOfRighteousness(
                 player.HasBuff(SealOfRighteousness),
                 target.HasDebuff(JudgementOfTheCrusader),
-                player.KnowsSpell(JudgementOfTheCrusader)));
+                player.KnowsSpell(JudgementOfTheCrusader))))
+                return;
 
-            TryCastSpell(HolyShield, !player.HasBuff(HolyShield) && target.HealthPercent > 50);
+            if (TryCastNoTargetRotationSpell(HolyShield, ProtectionPaladinRotation.ShouldHolyShield(
+                player.HasBuff(HolyShield), target.HealthPercent)))
+                return;
         }
     }
 }

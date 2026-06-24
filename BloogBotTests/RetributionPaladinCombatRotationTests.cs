@@ -89,5 +89,44 @@ namespace BloogBotTests
                     knowsSanctityAura: false,
                     hasSanctityAura: false));
         }
+
+        [TestMethod]
+        public void ExorcismOnlyHitsUndeadAndDemons()
+        {
+            Assert.IsTrue(RetributionPaladinCombatRotation.ShouldExorcism(true));
+            Assert.IsFalse(RetributionPaladinCombatRotation.ShouldExorcism(false));
+        }
+
+        [TestMethod]
+        public void HammerOfJusticeIsHeldForHumanoidExecutes()
+        {
+            Assert.IsTrue(RetributionPaladinCombatRotation.ShouldHammerOfJustice(false, 100));
+            Assert.IsFalse(RetributionPaladinCombatRotation.ShouldHammerOfJustice(true, 20));
+            Assert.IsTrue(RetributionPaladinCombatRotation.ShouldHammerOfJustice(true, 19));
+        }
+
+        [TestMethod]
+        public void SealOfTheCrusaderIsKeptUpUntilJudged()
+        {
+            Assert.IsTrue(RetributionPaladinCombatRotation.ShouldSealOfTheCrusader(false, false));
+            Assert.IsFalse(RetributionPaladinCombatRotation.ShouldSealOfTheCrusader(true, false));
+            Assert.IsFalse(RetributionPaladinCombatRotation.ShouldSealOfTheCrusader(false, true));
+        }
+
+        [TestMethod]
+        public void SealOfCommandTakesOverAfterTheCrusaderDebuffLands()
+        {
+            Assert.IsTrue(RetributionPaladinCombatRotation.ShouldSealOfCommand(false, true));
+            Assert.IsFalse(RetributionPaladinCombatRotation.ShouldSealOfCommand(true, true));
+            Assert.IsFalse(RetributionPaladinCombatRotation.ShouldSealOfCommand(false, false));
+        }
+
+        [TestMethod]
+        public void HolyShieldIsHeldForHealthyTargets()
+        {
+            Assert.IsTrue(RetributionPaladinCombatRotation.ShouldHolyShield(false, 51));
+            Assert.IsFalse(RetributionPaladinCombatRotation.ShouldHolyShield(true, 51));
+            Assert.IsFalse(RetributionPaladinCombatRotation.ShouldHolyShield(false, 50));
+        }
     }
 }
