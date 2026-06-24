@@ -157,7 +157,12 @@ namespace EnhancementShamanBot
                 return;
             if (TryCastNoTargetRotationSpell(TremorTotem, condition: fearingCreatures.Contains(target.Name) && !IsTotemNearby(TremorTotem, 29), callback: updateAnchor))
                 return;
-            if (TryCastNoTargetRotationSpell(StoneclawTotem, condition: ObjectManager.Aggressors.Count() > 1 || player.HealthPercent < 65, callback: updateAnchor))
+            if (TryCastNoTargetRotationSpell(StoneclawTotem,
+                condition: EnhancementShamanRotation.ShouldUseStoneclawTotem(
+                    IsTotemNearby(StoneclawTotem, 19),
+                    ObjectManager.Aggressors.Count(),
+                    player.HealthPercent),
+                callback: updateAnchor))
                 return;
 
             if (TryMaintainWeaponEnchant())
@@ -207,8 +212,13 @@ namespace EnhancementShamanBot
 
             // Earth Shock: after SS debuff, on Clearcasting proc, to interrupt, or as pre-SS filler
             if (TryCastRotationSpell(EarthShock, 0, 20,
-                !targetIsNatureImmune &&
-                (target.HasDebuff(FlameShock) || target.HasDebuff(Stormstrike) || player.HasBuff(Clearcasting))))
+                EnhancementShamanRotation.ShouldUseEarthShock(
+                    player.KnowsSpell(FlameShock),
+                    target.HasDebuff(FlameShock),
+                    target.HasDebuff(Stormstrike),
+                    player.HasBuff(Clearcasting),
+                    targetIsFireImmune,
+                    targetIsNatureImmune)))
                 return;
 
             // Fire Nova: detonate active Searing Totem for AoE

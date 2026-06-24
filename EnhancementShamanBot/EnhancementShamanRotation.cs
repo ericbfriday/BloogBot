@@ -16,6 +16,27 @@ namespace EnhancementShamanBot
         internal const string WaterShield = "Water Shield";
         internal const string WindfuryWeapon = "Windfury Weapon";
 
+        internal static bool ShouldUseStoneclawTotem(
+            bool hasActiveStoneclawTotem,
+            int aggressorCount,
+            int healthPercent) =>
+            !hasActiveStoneclawTotem &&
+            (aggressorCount > 1 || healthPercent < 65);
+
+        internal static bool ShouldUseEarthShock(
+            bool knowsFlameShock,
+            bool targetHasFlameShock,
+            bool targetHasStormstrike,
+            bool hasClearcasting,
+            bool targetIsFireImmune,
+            bool targetIsNatureImmune) =>
+            !targetIsNatureImmune &&
+            (!knowsFlameShock ||
+             targetIsFireImmune ||
+             targetHasFlameShock ||
+             targetHasStormstrike ||
+             hasClearcasting);
+
         internal static bool ShouldUseWotlkFireNova(
             ClientVersion clientVersion,
             bool knowsFireNova,
@@ -88,11 +109,13 @@ namespace EnhancementShamanBot
             bool isAoE,
             int manaPercent)
         {
-            if (clientVersion == ClientVersion.WotLK &&
+            var shouldUseWaterShield =
+                clientVersion == ClientVersion.WotLK &&
                 knowsWaterShield &&
-                !hasWaterShield &&
-                (isAoE || manaPercent < 35))
-                return WaterShield;
+                (isAoE || manaPercent < 35);
+
+            if (shouldUseWaterShield)
+                return hasWaterShield ? null : WaterShield;
 
             if (knowsLightningShield && !hasLightningShield)
                 return LightningShield;
@@ -111,6 +134,9 @@ namespace EnhancementShamanBot
 
             if (knowsWindfuryWeapon)
                 return WindfuryWeapon;
+
+            if (clientVersion != ClientVersion.WotLK && knowsRockbiterWeapon)
+                return RockbiterWeapon;
 
             if (knowsFlametongueWeapon)
                 return FlametongueWeapon;

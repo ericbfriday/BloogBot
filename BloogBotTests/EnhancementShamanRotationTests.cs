@@ -24,6 +24,39 @@ namespace BloogBotTests
         }
 
         [TestMethod]
+        public void ActiveStoneclawTotemIsNotRecast()
+        {
+            Assert.IsFalse(EnhancementShamanRotation.ShouldUseStoneclawTotem(
+                hasActiveStoneclawTotem: true,
+                aggressorCount: 2,
+                healthPercent: 50));
+        }
+
+        [TestMethod]
+        public void EarthShockIsUsedWhenFlameShockIsNotYetKnown()
+        {
+            Assert.IsTrue(EnhancementShamanRotation.ShouldUseEarthShock(
+                knowsFlameShock: false,
+                targetHasFlameShock: false,
+                targetHasStormstrike: false,
+                hasClearcasting: false,
+                targetIsFireImmune: false,
+                targetIsNatureImmune: false));
+        }
+
+        [TestMethod]
+        public void EarthShockIsUsedWhenFlameShockCannotDamageTheTarget()
+        {
+            Assert.IsTrue(EnhancementShamanRotation.ShouldUseEarthShock(
+                knowsFlameShock: true,
+                targetHasFlameShock: false,
+                targetHasStormstrike: false,
+                hasClearcasting: false,
+                targetIsFireImmune: true,
+                targetIsNatureImmune: false));
+        }
+
+        [TestMethod]
         public void MaelstromPrefersChainLightningForMultipleEnemies()
         {
             Assert.AreEqual(EnhancementShamanRotation.ChainLightning, EnhancementShamanRotation.SelectMaelstromSpell(
@@ -64,6 +97,19 @@ namespace BloogBotTests
         }
 
         [TestMethod]
+        public void WotlkWaterShieldIsNotOverwrittenWhileManaPressureContinues()
+        {
+            Assert.IsNull(EnhancementShamanRotation.SelectShield(
+                ClientVersion.WotLK,
+                knowsWaterShield: true,
+                hasWaterShield: true,
+                knowsLightningShield: true,
+                hasLightningShield: false,
+                isAoE: true,
+                manaPercent: 20));
+        }
+
+        [TestMethod]
         public void WotlkLevelingPrefersFlametongueWhileLegacyKeepsWindfuryPriority()
         {
             Assert.AreEqual(EnhancementShamanRotation.FlametongueWeapon, EnhancementShamanRotation.SelectMainhandWeaponEnchant(
@@ -76,6 +122,22 @@ namespace BloogBotTests
                 ClientVersion.TBC,
                 knowsFlametongueWeapon: true,
                 knowsWindfuryWeapon: true,
+                knowsRockbiterWeapon: true));
+        }
+
+        [TestMethod]
+        public void LegacyEarlyLevelWeaponEnchantPrefersRockbiter()
+        {
+            Assert.AreEqual(EnhancementShamanRotation.RockbiterWeapon, EnhancementShamanRotation.SelectMainhandWeaponEnchant(
+                ClientVersion.Vanilla,
+                knowsFlametongueWeapon: true,
+                knowsWindfuryWeapon: false,
+                knowsRockbiterWeapon: true));
+
+            Assert.AreEqual(EnhancementShamanRotation.RockbiterWeapon, EnhancementShamanRotation.SelectMainhandWeaponEnchant(
+                ClientVersion.TBC,
+                knowsFlametongueWeapon: true,
+                knowsWindfuryWeapon: false,
                 knowsRockbiterWeapon: true));
         }
 
