@@ -101,9 +101,9 @@ namespace BloogBot.Game
             gameFunctionHandler.Jump();
         }
 
-        static public void LuaCall(string code)
+        static public bool LuaCall(string code)
         {
-            gameFunctionHandler.LuaCall(code);
+            return gameFunctionHandler.LuaCall(code);
         }
 
         static public string[] LuaCallWithResult(string code)
@@ -118,13 +118,14 @@ namespace BloogBot.Game
                 luaVarNames.Add(randomName);
             }
 
-            LuaCall(code);
+            if (!LuaCall(code))
+                return luaVarNames.Select(_ => string.Empty).ToArray();
 
             var results = new List<string>();
             foreach (var varName in luaVarNames)
             {
                 var address = gameFunctionHandler.GetText(varName);
-                results.Add(MemoryManager.ReadString(address));
+                results.Add(MemoryManager.ReadString(address) ?? string.Empty);
             }
 
             return results.ToArray();

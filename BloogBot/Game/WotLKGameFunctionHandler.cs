@@ -149,9 +149,18 @@ namespace BloogBot.Game
         static readonly GetTextDelegate GetTextFunction =
             Marshal.GetDelegateForFunctionPointer<GetTextDelegate>((IntPtr)MemoryAddresses.GetTextFunPtr);
 
+        [HandleProcessCorruptedStateExceptions]
         public IntPtr GetText(string varName)
         {
-            return GetTextFunction(varName);
+            try
+            {
+                return GetTextFunction(varName);
+            }
+            catch (AccessViolationException)
+            {
+                Logger.Log($"[GetText] Access violation reading Lua variable {varName}");
+                return IntPtr.Zero;
+            }
         }
 
         [UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -227,9 +236,19 @@ namespace BloogBot.Game
         static readonly LuaCallDelegate LuaCallFunction =
             Marshal.GetDelegateForFunctionPointer<LuaCallDelegate>((IntPtr)MemoryAddresses.LuaCallFunPtr);
 
-        public void LuaCall(string code)
+        [HandleProcessCorruptedStateExceptions]
+        public bool LuaCall(string code)
         {
-            LuaCallFunction(code, code, 0);
+            try
+            {
+                LuaCallFunction(code, code, 0);
+                return true;
+            }
+            catch (AccessViolationException)
+            {
+                Logger.Log($"[LuaCall] Access violation running Lua: {code}");
+                return false;
+            }
         }
 
         public void ReleaseCorpse(IntPtr ptr)

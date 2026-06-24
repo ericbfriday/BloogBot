@@ -204,9 +204,19 @@ namespace BloogBot.Game
         [DllImport("FastCall.dll", EntryPoint = "LuaCall")]
         static extern void LuaCallFunction(string code, int ptr);
 
-        public void LuaCall(string code)
+        [HandleProcessCorruptedStateExceptions]
+        public bool LuaCall(string code)
         {
-            LuaCallFunction(code, MemoryAddresses.LuaCallFunPtr);
+            try
+            {
+                LuaCallFunction(code, MemoryAddresses.LuaCallFunPtr);
+                return true;
+            }
+            catch (AccessViolationException)
+            {
+                Logger.Log($"[LuaCall] Access violation running Lua: {code}");
+                return false;
+            }
         }
 
         [UnmanagedFunctionPointer(CallingConvention.ThisCall)]

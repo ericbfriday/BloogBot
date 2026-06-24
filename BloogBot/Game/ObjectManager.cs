@@ -342,7 +342,9 @@ namespace BloogBot.Game
                 if (target != null)
                 {
                     probe.TargetName = target.Name;
-                    probe.TargetClass = Player.LuaCallWithResults($"{{0}} = UnitClass(\"target\")")[0];
+                    probe.TargetClass = target.Guid == Player.Guid
+                        ? Player.Class.ToString()
+                        : Player.LuaCallWithResults($"{{0}} = UnitClass(\"target\")")[0];
                     probe.TargetCreatureType = target.CreatureType.ToString();
                     probe.TargetPosition = target.Position.ToString();
                     probe.TargetRange = Player.Position.DistanceTo(target.Position).ToString();
@@ -351,6 +353,19 @@ namespace BloogBot.Game
                     probe.TargetIsChanneling = target.IsChanneling.ToString();
                     probe.TargetBuffs = string.Join(", ", target.Buffs.Select(u => u.Name));
                     probe.TargetDebuffs = string.Join(", ", target.Debuffs.Select(u => u.Name));
+                }
+                else
+                {
+                    probe.TargetName = "";
+                    probe.TargetClass = "";
+                    probe.TargetCreatureType = "";
+                    probe.TargetPosition = "";
+                    probe.TargetRange = "";
+                    probe.TargetFactionId = "";
+                    probe.TargetIsCasting = "";
+                    probe.TargetIsChanneling = "";
+                    probe.TargetBuffs = "";
+                    probe.TargetDebuffs = "";
                 }
 
                 probe.Callback();

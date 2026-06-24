@@ -25,7 +25,7 @@ namespace BloogBot.Game
 
         UnitReaction GetUnitReaction(IntPtr unitPtr1, IntPtr unitPtr2);
 
-        void LuaCall(string code);
+        bool LuaCall(string code);
 
         IntPtr GetText(string varName);
 

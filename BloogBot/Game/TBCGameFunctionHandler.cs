@@ -237,9 +237,19 @@ namespace BloogBot.Game
         static readonly LuaCallDelegate LuaCallFunction =
             Marshal.GetDelegateForFunctionPointer<LuaCallDelegate>((IntPtr)MemoryAddresses.LuaCallFunPtr);
 
-        public void LuaCall(string code)
+        [HandleProcessCorruptedStateExceptions]
+        public bool LuaCall(string code)
         {
-            LuaCallFunction(code, code, 0);
+            try
+            {
+                LuaCallFunction(code, code, 0);
+                return true;
+            }
+            catch (AccessViolationException)
+            {
+                Logger.Log($"[LuaCall] Access violation running Lua: {code}");
+                return false;
+            }
         }
 
         [UnmanagedFunctionPointer(CallingConvention.ThisCall)]
