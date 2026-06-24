@@ -8,6 +8,13 @@ using System.Collections.Generic;
 
 namespace BeastMasterHunterBot
 {
+    enum RestConsumable
+    {
+        None,
+        Food,
+        Drink
+    }
+
     // TODO: add in ammo buying/management
     class RestState : RestStateBase
     {
@@ -28,22 +35,21 @@ namespace BeastMasterHunterBot
                 return;
             }
 
+            if (player.IsCasting)
+                return;
+
             var pet = ObjectManager.Pet;
-            if (pet != null && !pet.IsHappy() && !pet.HasBuff("Feed Pet Effect") && Wait.For("FeedPetDelay", 3000, true))
+            if (player.IsEating || player.IsDrinking)
+                return;
+
+            if (pet != null && foodItem != null && !pet.IsHappy() && !pet.HasBuff("Feed Pet Effect") && Wait.For("FeedPetDelay", 3000, true))
             {
                 FeedPet();
+                return;
             }
 
-            TryEat(80, delayMs: 2000);
-            TryDrink(80, delayMs: 2000);
-
-            if (pet != null && pet.HealthPercent > 0 && pet.HealthPercent < 90
-                && !pet.HasBuff(MendPet) && player.IsSpellReady(MendPet))
-            {
-                player.LuaCall($"CastSpellByName('{MendPet}')");
-            }
-
-            if (HealthOk && ManaOk && PetHealthOk)
+            var playerKnowsMendPet = player.KnowsSpell(MendPet);
+            if (HealthOk && ManaOk && IsPetHealthOk(pet != null, pet?.HealthPercent ?? 0, playerKnowsMendPet))
             {
                 StopResting();
                 botStates.Push(new BuffSelfState(botStates, container));
@@ -52,6 +58,41 @@ namespace BeastMasterHunterBot
                 TryRunRestockErrands(12, 28);
                 return;
             }
+
+            var consumable = SelectConsumable(
+                foodItem != null,
+                player.IsEating,
+                player.HealthPercent,
+                drinkItem != null,
+                player.IsDrinking,
+                player.ManaPercent);
+            if (consumable == RestConsumable.Food)
+            {
+                if (Wait.For("EatDelay", 2000, true))
+                    foodItem.Use();
+
+                return;
+            }
+
+            if (consumable == RestConsumable.Drink)
+            {
+                if (Wait.For("DrinkDelay", 2000, true))
+                    drinkItem.Use();
+
+                return;
+            }
+
+            var mendPetReady = playerKnowsMendPet && player.IsSpellReady(MendPet);
+            var mendPetManaCost = playerKnowsMendPet ? player.GetManaCost(MendPet) : int.MaxValue;
+            if (ShouldCastMendPet(
+                pet != null,
+                pet?.HealthPercent ?? 0,
+                pet?.HasBuff(MendPet) ?? false,
+                playerKnowsMendPet,
+                mendPetReady,
+                player.Mana,
+                mendPetManaCost))
+                player.LuaCall($"CastSpellByName('{MendPet}')");
         }
 
         void RefreshConsumables()
@@ -78,14 +119,47 @@ namespace BeastMasterHunterBot
 
         bool ManaOk => drinkItem == null || player.ManaPercent >= 95 || (player.ManaPercent >= 80 && !player.IsDrinking);
 
-        bool PetHealthOk
+        internal static RestConsumable SelectConsumable(
+            bool hasFood,
+            bool isEating,
+            int healthPercent,
+            bool hasDrink,
+            bool isDrinking,
+            int manaPercent)
         {
-            get
-            {
-                var pet = ObjectManager.Pet;
-                return pet == null || pet.HealthPercent == 0 || pet.HealthPercent >= 90;
-            }
+            if (isEating || isDrinking)
+                return RestConsumable.None;
+
+            if (hasFood && healthPercent < 80)
+                return RestConsumable.Food;
+
+            if (hasDrink && manaPercent < 80)
+                return RestConsumable.Drink;
+
+            return RestConsumable.None;
         }
+
+        internal static bool IsPetHealthOk(bool petExists, int petHealthPercent, bool playerKnowsMendPet) =>
+            !petExists ||
+            petHealthPercent == 0 ||
+            petHealthPercent >= 90 ||
+            !playerKnowsMendPet;
+
+        internal static bool ShouldCastMendPet(
+            bool petExists,
+            int petHealthPercent,
+            bool petHasMendPetBuff,
+            bool playerKnowsMendPet,
+            bool mendPetReady,
+            int playerMana,
+            int mendPetManaCost) =>
+            petExists &&
+            petHealthPercent > 0 &&
+            petHealthPercent < 90 &&
+            !petHasMendPetBuff &&
+            playerKnowsMendPet &&
+            mendPetReady &&
+            playerMana >= mendPetManaCost;
 
         internal static bool ShouldAddErrandItem(string itemName, int amountToBuy) =>
             amountToBuy > 0 &&

@@ -4,32 +4,25 @@ using BeastMasterHunterBot;
 using BloogBot.AI;
 using BloogBot.Game;
 using BloogBot.Game.Objects;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BeastmasterHunterBot
 {
     class PetManagerState : IBotState
     {
-        const string CallPet = "Call Pet";
-        const string RevivePet = "Revive Pet";
+        internal const string CallPet = "Call Pet";
+        internal const string RevivePet = "Revive Pet";
         const string FeedPet = "Feed Pet";
 
 
         readonly Stack<IBotState> botStates;
         readonly IDependencyContainer container;
         readonly LocalPlayer player;
-        readonly LocalPet pet;
-
         public PetManagerState(Stack<IBotState> botStates, IDependencyContainer container)
         {
             this.botStates = botStates;
             this.container = container;
             player = ObjectManager.Player;
-            pet = ObjectManager.Pet;
         }
 
         public void Update()
@@ -37,7 +30,13 @@ namespace BeastmasterHunterBot
             if (player.IsCasting)
                 return;
 
-            if (!player.KnowsSpell(CallPet) || ObjectManager.Pet != null)
+            var pet = ObjectManager.Pet;
+            var recoverySpell = SelectRecoverySpell(
+                pet != null,
+                pet != null && pet.HealthPercent > 0,
+                player.KnowsSpell(CallPet),
+                player.KnowsSpell(RevivePet));
+            if (recoverySpell == null)
             {
                 player.Stand();
                 botStates.Pop();
@@ -45,7 +44,21 @@ namespace BeastmasterHunterBot
                 return;
             }
 
-            player.LuaCall($"CastSpellByName('{CallPet}')");
+            if (player.IsSpellReady(recoverySpell) &&
+                player.Mana >= player.GetManaCost(recoverySpell))
+                player.LuaCall($"CastSpellByName('{recoverySpell}')");
+        }
+
+        internal static string SelectRecoverySpell(
+            bool petExists,
+            bool petAlive,
+            bool knowsCallPet,
+            bool knowsRevivePet)
+        {
+            if (petExists)
+                return !petAlive && knowsRevivePet ? RevivePet : null;
+
+            return knowsCallPet ? CallPet : null;
         }
 
         public void Feed(string parFoodName)

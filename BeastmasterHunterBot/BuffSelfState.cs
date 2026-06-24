@@ -10,11 +10,9 @@ namespace BeastMasterHunterBot
 {
     class BuffSelfState : IBotState
     {
+        const string AspectOfTheDragonhawk = BeastmasterHunterRotation.AspectOfTheDragonhawk;
         const string AspectOfTheHawk   = "Aspect of the Hawk";   // Level 10 — best grinding aspect
         const string AspectOfTheMonkey = "Aspect of the Monkey"; // Level 8  — fallback pre-10
-        const string AspectOfTheViper  = "Aspect of the Viper";  // may be active on entry after mana-starved combat; Hawk cast below supersedes it
-        const string CallPet = "Call Pet";
-
         readonly Stack<IBotState> botStates;
         readonly IDependencyContainer container;
         readonly LocalPlayer player;
@@ -24,23 +22,39 @@ namespace BeastMasterHunterBot
             this.botStates = botStates;
             this.container = container;
             player = ObjectManager.Player;
-            player.SetTarget(player.Guid);
         }
 
         public void Update()
         {
+            if (player.IsCasting)
+                return;
+
             // Ensure the pet is summoned before heading into combat.
             // PetManagerState will call us back (via Push/Pop) once the pet is ready.
-            if (player.KnowsSpell(CallPet) && ObjectManager.Pet == null)
+            var pet = ObjectManager.Pet;
+            var petRecoverySpell = PetManagerState.SelectRecoverySpell(
+                pet != null,
+                pet != null && pet.HealthPercent > 0,
+                player.KnowsSpell(PetManagerState.CallPet),
+                player.KnowsSpell(PetManagerState.RevivePet));
+            if (petRecoverySpell != null)
             {
                 botStates.Pop();
                 botStates.Push(new PetManagerState(botStates, container));
                 return;
             }
 
-            // Apply the best aspect we know:
-            //   Aspect of the Hawk if learned (level 10+), otherwise Aspect of the Monkey.
-            if (player.KnowsSpell(AspectOfTheHawk))
+            // Apply the best aspect we know.
+            if (player.KnowsSpell(AspectOfTheDragonhawk))
+            {
+                if (player.HasBuff(AspectOfTheDragonhawk))
+                {
+                    botStates.Pop();
+                    return;
+                }
+                TryCastSpell(AspectOfTheDragonhawk);
+            }
+            else if (player.KnowsSpell(AspectOfTheHawk))
             {
                 if (player.HasBuff(AspectOfTheHawk))
                 {
@@ -67,7 +81,9 @@ namespace BeastMasterHunterBot
 
         void TryCastSpell(string name)
         {
-            if (player.IsSpellReady(name))
+            if (player.KnowsSpell(name) &&
+                player.IsSpellReady(name) &&
+                player.Mana >= player.GetManaCost(name))
                 player.LuaCall($"CastSpellByName('{name}')");
         }
     }

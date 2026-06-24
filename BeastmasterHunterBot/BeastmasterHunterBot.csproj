@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BeastMasterHunterBot.cs" />
+    <Compile Include="BeastmasterHunterRotation.cs" />
     <Compile Include="BuffSelfState.cs" />
     <Compile Include="CombatState.cs" />
     <Compile Include="HealSelfState.cs" />
