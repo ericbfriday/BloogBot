@@ -10,8 +10,8 @@ namespace FeralDruidBot
 {
     class RestState : RestStateBase
     {
-        const string Regrowth = "Regrowth";
-        const string Rejuvenation = "Rejuvenation";
+        internal const string Regrowth = "Regrowth";
+        internal const string Rejuvenation = "Rejuvenation";
 
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
             : base(botStates, container, trackFood: false)
@@ -34,37 +34,73 @@ namespace FeralDruidBot
                 StopResting();
                 if (!TryRunRestockErrands(0, 28))
                     botStates.Push(new BuffSelfState(botStates, container));
+
+                return;
             }
 
-            if (player.HealthPercent < 60 && !player.HasBuff(Regrowth))
-                TryCastSpell(Regrowth);
-
-            if (player.HealthPercent < 80 && !player.HasBuff(Rejuvenation) && !player.HasBuff(Regrowth))
-                TryCastSpell(Rejuvenation);
+            var heal = SelectRestHeal(
+                player.HealthPercent,
+                player.HasBuff(Regrowth),
+                CanCastSpell(Regrowth),
+                player.HasBuff(Rejuvenation),
+                CanCastSpell(Rejuvenation));
+            if (heal != null)
+            {
+                CastSpell(heal);
+                return;
+            }
 
             if (player.Level > 8)
-                TryDrink(60, delayMs: 0);
+                TryDrink(65, delayMs: 0);
         }
 
-        bool HealthOk => player.HealthPercent >= 81;
+        bool HealthOk => IsHealthOk(player.HealthPercent);
 
-        bool ManaOk => (player.Level <= 8 && player.ManaPercent > 50) || player.ManaPercent >= 90 || (player.ManaPercent >= 65 && !player.IsDrinking);
+        bool ManaOk => IsManaOk(player.Level, player.ManaPercent, player.IsDrinking, drinkItem != null);
 
         protected override bool InCombat => ObjectManager.Aggressors.Any();
 
-        void TryCastSpell(string name)
+        bool CanCastSpell(string name) =>
+            player.KnowsSpell(name) &&
+            player.IsSpellReady(name) &&
+            !player.IsCasting &&
+            player.Mana >= player.GetManaCost(name) &&
+            !player.IsDrinking;
+
+        void CastSpell(string name)
         {
-            if (player.IsSpellReady(name) && !player.IsCasting && player.Mana > player.GetManaCost(name) && !player.IsDrinking)
+            if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
             {
-                if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
-                {
-                    player.LuaCall($"CastSpellByName(\"{name}\", 1)");
-                }
-                else
-                {
-                    player.CastSpell(name, player.Guid);
-                }
+                player.LuaCall($"CastSpellByName(\"{name}\", 1)");
             }
+            else
+            {
+                player.CastSpell(name, player.Guid);
+            }
+        }
+
+        internal static bool IsHealthOk(int healthPercent) => healthPercent >= 80;
+
+        internal static bool IsManaOk(int level, int manaPercent, bool isDrinking, bool hasDrink) =>
+            !hasDrink ||
+            (level <= 8 && manaPercent > 50) ||
+            manaPercent >= 90 ||
+            (manaPercent >= 65 && !isDrinking);
+
+        internal static string SelectRestHeal(
+            int healthPercent,
+            bool hasRegrowth,
+            bool canCastRegrowth,
+            bool hasRejuvenation,
+            bool canCastRejuvenation)
+        {
+            if (healthPercent < 60 && !hasRegrowth && canCastRegrowth)
+                return Regrowth;
+
+            if (healthPercent < 80 && !hasRegrowth && !hasRejuvenation && canCastRejuvenation)
+                return Rejuvenation;
+
+            return null;
         }
     }
 }

@@ -7,40 +7,51 @@ namespace ShadowPriestBot
 {
     class HealSelfState : IBotState
     {
-        const string LesserHeal = "Lesser Heal";
-        const string Heal = "Heal";
         const string Renew = "Renew";
 
         readonly Stack<IBotState> botStates;
         readonly LocalPlayer player;
 
-        readonly string healingSpell;
-
         public HealSelfState(Stack<IBotState> botStates, IDependencyContainer container)
         {
             this.botStates = botStates;
             player = ObjectManager.Player;
-
-            if (player.KnowsSpell(Heal))
-                healingSpell = Heal;
-            else
-                healingSpell = LesserHeal;
         }
 
         public void Update()
         {
             if (player.IsCasting) return;
 
-            if (player.HealthPercent > 70 || player.Mana < player.GetManaCost(healingSpell))
+            var healingSpell = ShadowPriestRecovery.SelectHeal(
+                player.HealthPercent,
+                CanCastSelfSpell(ShadowPriestRecovery.Heal),
+                CanCastSelfSpell(ShadowPriestRecovery.LesserHeal));
+            if (player.HealthPercent > 70 || healingSpell == null)
             {
-                if (player.KnowsSpell(Renew) && player.Mana > player.GetManaCost(Renew))
-                    player.LuaCall($"CastSpellByName('{Renew}',1)");
+                if (CanCastSelfSpell(Renew))
+                    CastSelfSpell(Renew);
 
                 botStates.Pop();
                 return;
             }
 
-            player.LuaCall($"CastSpellByName('{healingSpell}',1)");
+            if (ShadowPriestRecovery.ShouldLeaveShadowform(
+                player.HasBuff(ShadowPriestRecovery.Shadowform),
+                healingSpell))
+            {
+                CastSelfSpell(ShadowPriestRecovery.Shadowform);
+                return;
+            }
+
+            CastSelfSpell(healingSpell);
         }
+
+        bool CanCastSelfSpell(string name) =>
+            player.KnowsSpell(name) &&
+            player.IsSpellReady(name) &&
+            player.Mana >= player.GetManaCost(name);
+
+        void CastSelfSpell(string name) =>
+            player.LuaCall($"CastSpellByName('{name}',1)");
     }
 }

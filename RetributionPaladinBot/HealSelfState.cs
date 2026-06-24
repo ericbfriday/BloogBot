@@ -23,17 +23,40 @@ namespace RetributionPaladinBot
         {
             if (player.IsCasting) return;
 
-            if (player.HealthPercent > 70 || player.Mana < player.GetManaCost(HolyLight))
+            var knowsHolyLight = player.KnowsSpell(HolyLight);
+            var holyLightReady = knowsHolyLight && player.IsSpellReady(HolyLight);
+            var holyLightManaCost = knowsHolyLight ? player.GetManaCost(HolyLight) : int.MaxValue;
+            if (player.HealthPercent > 70 || !CanCastSpell(
+                knowsHolyLight,
+                holyLightReady,
+                player.Mana,
+                holyLightManaCost))
             {
                 botStates.Pop();
                 return;
             }
 
-            if (player.Mana > player.GetManaCost(DivineProtection) && player.IsSpellReady(DivineProtection))
+            var knowsDivineProtection = player.KnowsSpell(DivineProtection);
+            var divineProtectionReady = knowsDivineProtection && player.IsSpellReady(DivineProtection);
+            var divineProtectionManaCost = knowsDivineProtection
+                ? player.GetManaCost(DivineProtection)
+                : int.MaxValue;
+            if (CanCastSpell(
+                knowsDivineProtection,
+                divineProtectionReady,
+                player.Mana,
+                divineProtectionManaCost))
+            {
                 player.LuaCall($"CastSpellByName('{DivineProtection}')");
+                return;
+            }
 
-            if (player.Mana > player.GetManaCost(HolyLight) && player.IsSpellReady(HolyLight))
-                player.LuaCall($"CastSpellByName('{HolyLight}',1)");
+            player.LuaCall($"CastSpellByName('{HolyLight}',1)");
         }
+
+        internal static bool CanCastSpell(bool knowsSpell, bool spellReady, int mana, int manaCost) =>
+            knowsSpell &&
+            spellReady &&
+            mana >= manaCost;
     }
 }

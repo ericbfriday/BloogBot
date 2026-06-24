@@ -21,6 +21,9 @@ namespace ShadowPriestBot
 
         public void Update()
         {
+            if (player.IsCasting)
+                return;
+
             if (ShadowPriestBuffSelfState.HasAllKnownBuffs(
                 player.KnowsSpell(PowerWordFortitude),
                 player.HasBuff(PowerWordFortitude),
@@ -31,25 +34,29 @@ namespace ShadowPriestBot
                 return;
             }
 
-            TryCastSpell(PowerWordFortitude);
+            if (TryCastSpell(PowerWordFortitude))
+                return;
 
             TryCastSpell(ShadowProtection);
         }
 
-        void TryCastSpell(string name, int requiredLevel = 1)
+        bool TryCastSpell(string name, int requiredLevel = 1)
         {
             var knowsSpell = player.KnowsSpell(name);
             var isSpellReady = knowsSpell && player.IsSpellReady(name);
             var hasEnoughMana = knowsSpell && player.Mana >= player.GetManaCost(name);
 
-            if (ShadowPriestBuffSelfState.ShouldCastBuff(
+            if (!ShadowPriestBuffSelfState.ShouldCastBuff(
                 player.HasBuff(name),
                 knowsSpell,
                 isSpellReady,
                 hasEnoughMana,
                 player.Level,
                 requiredLevel))
-                player.LuaCall($"CastSpellByName('{name}',1)");
+                return false;
+
+            player.LuaCall($"CastSpellByName('{name}',1)");
+            return true;
         }
     }
 }

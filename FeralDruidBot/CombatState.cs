@@ -2,6 +2,7 @@
 using BloogBot.AI;
 using BloogBot.AI.SharedStates;
 using BloogBot.Game;
+using BloogBot.Game.Enums;
 using BloogBot.Game.Objects;
 using System;
 using System.Collections.Generic;
@@ -61,7 +62,7 @@ namespace FeralDruidBot
 
         public new void Update()
         {
-            if (player.HealthPercent < 30 && player.Mana >= player.GetManaCost(HealingTouch))
+            if (player.HealthPercent < 30 && player.KnowsSpell(HealingTouch) && player.Mana >= player.GetManaCost(HealingTouch))
             {
                 Wait.RemoveAll();
                 botStates.Push(new HealSelfState(botStates, container, target));
@@ -98,7 +99,7 @@ namespace FeralDruidBot
                     TryUseBearAbility(DemoralizingRoar, 10, !target.HasDebuff(DemoralizingRoar) && player.CurrentShapeshiftForm == BearForm);
                 }
 
-                TryUseBearAbility(Enrage, condition: player.CurrentShapeshiftForm == BearForm);
+                TryUseBearAbility(Enrage, condition: player.CurrentShapeshiftForm == BearForm, castOnSelf: true);
 
                 TryUseBearAbility(Maul, FeralDruidRotation.MaulRageRequirement(player.Level), player.CurrentShapeshiftForm == BearForm);
             }
@@ -112,9 +113,9 @@ namespace FeralDruidBot
 
                 TryCastSpell(CatForm, 0, int.MaxValue, player.CurrentShapeshiftForm != CatForm);
 
-                TryUseCatAbility(Berserk, 0, condition: target.HealthPercent > 30 && !player.HasBuff(Berserk));
+                TryUseCatAbility(Berserk, 0, condition: target.HealthPercent > 30 && !player.HasBuff(Berserk), castOnSelf: true);
 
-                TryUseCatAbility(TigersFury, 30, condition: target.HealthPercent > 30 && !player.HasBuff(TigersFury));
+                TryUseCatAbility(TigersFury, 30, condition: target.HealthPercent > 30 && !player.HasBuff(TigersFury), castOnSelf: true);
 
                 TryCastSpell(FaerieFire, condition: !target.HasDebuff(FaerieFire));
 
@@ -130,8 +131,11 @@ namespace FeralDruidBot
             }
         }
 
-        void TryUseBearAbility(string name, int requiredRage = 0, bool condition = true, Action callback = null)
+        void TryUseBearAbility(string name, int requiredRage = 0, bool condition = true, Action callback = null, bool castOnSelf = false)
         {
+            if (!player.KnowsSpell(name))
+                return;
+
             if (FeralDruidRotation.CanUseBearAbility(
                 player.IsSpellReady(name),
                 player.Rage,
@@ -140,13 +144,16 @@ namespace FeralDruidBot
                 player.CurrentShapeshiftForm == BearForm,
                 condition))
             {
-                player.LuaCall($"CastSpellByName(\"{name}\")");
+                CastAbility(name, castOnSelf ? player.Guid : target.Guid);
                 callback?.Invoke();
             }
         }
 
-        void TryUseCatAbility(string name, int requiredEnergy = 0, bool requiresComboPoints = false, bool condition = true, Action callback = null)
+        void TryUseCatAbility(string name, int requiredEnergy = 0, bool requiresComboPoints = false, bool condition = true, Action callback = null, bool castOnSelf = false)
         {
+            if (!player.KnowsSpell(name))
+                return;
+
             if (FeralDruidRotation.CanUseCatAbility(
                 player.IsSpellReady(name),
                 player.Energy,
@@ -157,9 +164,17 @@ namespace FeralDruidBot
                 player.CurrentShapeshiftForm == CatForm,
                 condition))
             {
-                player.LuaCall($"CastSpellByName(\"{name}\")");
+                CastAbility(name, castOnSelf ? player.Guid : target.Guid);
                 callback?.Invoke();
             }
+        }
+
+        void CastAbility(string name, ulong targetGuid)
+        {
+            if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
+                player.LuaCall($"CastSpellByName(\"{name}\")");
+            else
+                player.CastSpell(name, targetGuid);
         }
     }
 }

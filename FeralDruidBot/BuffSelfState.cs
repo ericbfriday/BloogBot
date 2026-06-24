@@ -33,23 +33,18 @@ namespace FeralDruidBot
             TryCastSpell(Thorns);
         }
 
-        void TryCastSpell(string name, bool castOnSelf = false)
+        void TryCastSpell(string name)
         {
             if (!player.HasBuff(name) && player.KnowsSpell(name) && player.IsSpellReady(name))
             {
-                if (castOnSelf)
+                if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
                 {
-                    if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
-                    {
-                        player.LuaCall($"CastSpellByName(\"{name}\",1)");
-                    }
-                    else
-                    {
-                        player.CastSpell(name, player.Guid);
-                    }
+                    player.LuaCall($"CastSpellByName(\"{name}\",1)");
                 }
                 else
-                    player.LuaCall($"CastSpellByName('{name}')");
+                {
+                    player.CastSpell(name, player.Guid);
+                }
             }
         }
     }

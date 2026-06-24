@@ -28,6 +28,73 @@ namespace BloogBotTests
         }
 
         [TestMethod]
+        public void FoodTakesPriorityWhenFoodAndDrinkAreBothNeeded()
+        {
+            Assert.AreEqual(
+                RestConsumable.Food,
+                RestState.GetConsumableToUse(
+                    level: 30,
+                    hasFood: true,
+                    isEating: false,
+                    healthPercent: 30,
+                    hasDrink: true,
+                    isDrinking: false,
+                    manaPercent: 20));
+        }
+
+        [TestMethod]
+        public void ActiveFoodIsNotInterruptedByDrink()
+        {
+            Assert.AreEqual(
+                RestConsumable.None,
+                RestState.GetConsumableToUse(
+                    level: 30,
+                    hasFood: true,
+                    isEating: true,
+                    healthPercent: 30,
+                    hasDrink: true,
+                    isDrinking: false,
+                    manaPercent: 20));
+        }
+
+        [TestMethod]
+        public void ActiveDrinkIsNotInterruptedByFood()
+        {
+            Assert.AreEqual(
+                RestConsumable.None,
+                RestState.GetConsumableToUse(
+                    level: 30,
+                    hasFood: true,
+                    isEating: false,
+                    healthPercent: 70,
+                    hasDrink: true,
+                    isDrinking: true,
+                    manaPercent: 20));
+        }
+
+        [TestMethod]
+        public void HighHealthRecoveryUsesAffordableLesserHealingWave()
+        {
+            Assert.AreEqual(
+                EnhancementShamanRotation.LesserHealingWave,
+                RestState.SelectRestHeal(
+                    healthPercent: 85,
+                    canUseLesserHealingWave: true,
+                    canUseHealingWave: false));
+        }
+
+        [TestMethod]
+        public void LowHealthRecoveryKeepsHealingWavePriority()
+        {
+            Assert.AreEqual(
+                EnhancementShamanRotation.HealingWave,
+                RestState.SelectRestHeal(
+                    healthPercent: 60,
+                    canUseLesserHealingWave: true,
+                    canUseHealingWave: true));
+        }
+
+        [TestMethod]
         public void HealDoesNotInterruptFoodOrDrink()
         {
             Assert.IsFalse(RestState.ShouldHeal(healthOk: false, isEating: true, isDrinking: false, canCastHeal: true));

@@ -32,6 +32,27 @@ namespace BloogBotTests
         }
 
         [TestMethod]
+        public void PullingWithWrathRequiresKnownReadyAffordableSpell()
+        {
+            Assert.IsTrue(FeralDruidRotation.CanPullWithWrath(true, true, 20, 10, false));
+            Assert.IsFalse(FeralDruidRotation.CanPullWithWrath(false, true, 20, 10, false));
+            Assert.IsFalse(FeralDruidRotation.CanPullWithWrath(true, false, 20, 10, false));
+            Assert.IsFalse(FeralDruidRotation.CanPullWithWrath(true, true, 9, 10, false));
+            Assert.IsFalse(FeralDruidRotation.CanPullWithWrath(true, true, 20, 10, true));
+        }
+
+        [TestMethod]
+        public void PullingWithFeralChargeRequiresKnownReadyEnergyAndCatForm()
+        {
+            Assert.IsTrue(FeralDruidRotation.CanPullWithFeralCharge(true, true, 10, true, false));
+            Assert.IsFalse(FeralDruidRotation.CanPullWithFeralCharge(false, true, 10, true, false));
+            Assert.IsFalse(FeralDruidRotation.CanPullWithFeralCharge(true, false, 10, true, false));
+            Assert.IsFalse(FeralDruidRotation.CanPullWithFeralCharge(true, true, 9, true, false));
+            Assert.IsFalse(FeralDruidRotation.CanPullWithFeralCharge(true, true, 10, false, false));
+            Assert.IsFalse(FeralDruidRotation.CanPullWithFeralCharge(true, true, 10, true, true));
+        }
+
+        [TestMethod]
         public void BearAbilitiesRequireBearFormAndRage()
         {
             Assert.IsTrue(FeralDruidRotation.CanUseBearAbility(true, 10, 10, false, true, true));

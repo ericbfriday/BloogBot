@@ -47,6 +47,7 @@
     <Compile Include="ShadowPriestBuffSelfState.cs" />
     <Compile Include="ShadowPriestPowerlevelCombatRange.cs" />
     <Compile Include="ShadowPriestPowerlevelCombatRotation.cs" />
+    <Compile Include="ShadowPriestRecovery.cs" />
     <Compile Include="ShadowPriestBot.cs" />
     <Compile Include="CombatState.cs" />
     <Compile Include="MoveToTargetState.cs" />

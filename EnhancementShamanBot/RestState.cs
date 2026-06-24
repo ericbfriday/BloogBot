@@ -7,6 +7,13 @@ using System.Collections.Generic;
 
 namespace EnhancementShamanBot
 {
+    enum RestConsumable
+    {
+        None,
+        Food,
+        Drink
+    }
+
     class RestState : RestStateBase
     {
         const int lowLevelManaReadyPercent = 50;
@@ -14,7 +21,8 @@ namespace EnhancementShamanBot
         const int fullManaReadyPercent = 90;
         const int foodHealthPercent = 80;
 
-        const string HealingWave = "Healing Wave";
+        const string HealingWave = EnhancementShamanRotation.HealingWave;
+        const string LesserHealingWave = EnhancementShamanRotation.LesserHealingWave;
 
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
             : base(botStates, container)
@@ -32,31 +40,47 @@ namespace EnhancementShamanBot
                 return;
             }
 
-            var usedConsumable = false;
+            var consumable = GetConsumableToUse(
+                player.Level,
+                foodItem != null,
+                player.IsEating,
+                player.HealthPercent,
+                drinkItem != null,
+                player.IsDrinking,
+                player.ManaPercent);
 
-            if (ShouldUseFood(foodItem != null, player.IsEating, player.HealthPercent) && Wait.For("EatDelay", 2000, true))
+            if (consumable == RestConsumable.Food)
             {
-                foodItem.Use();
-                usedConsumable = true;
-            }
+                if (Wait.For("EatDelay", 2000, true))
+                    foodItem.Use();
 
-            if (ShouldUseDrink(player.Level, drinkItem != null, player.IsDrinking, player.ManaPercent) && Wait.For("DrinkDelay", 1000, true))
-            {
-                drinkItem.Use();
-                usedConsumable = true;
-            }
-
-            if (usedConsumable)
                 return;
+            }
+
+            if (consumable == RestConsumable.Drink)
+            {
+                if (Wait.For("DrinkDelay", 1000, true))
+                    drinkItem.Use();
+
+                return;
+            }
 
             var healRank = GetHealingWaveRank();
             var canCastHeal = player.KnowsSpell(HealingWave) &&
                 player.IsSpellReady(HealingWave, healRank) &&
                 player.Mana >= player.GetManaCost(HealingWave, healRank);
-            if (ShouldHeal(HealthOk, player.IsEating, player.IsDrinking, canCastHeal) && Wait.For("HealSelfDelay", 3500, true))
+            var canCastLesserHealingWave = player.KnowsSpell(LesserHealingWave) &&
+                player.IsSpellReady(LesserHealingWave) &&
+                player.Mana >= player.GetManaCost(LesserHealingWave);
+            var healSpell = SelectRestHeal(player.HealthPercent, canCastLesserHealingWave, canCastHeal);
+            if (ShouldHeal(HealthOk, player.IsEating, player.IsDrinking, healSpell != null) && Wait.For("HealSelfDelay", 3500, true))
             {
                 player.Stand();
-                CastHealingWave(healRank);
+
+                if (healSpell == HealingWave)
+                    CastHealingWave(healRank);
+                else
+                    player.LuaCall($"CastSpellByName(\"{healSpell}\", 1)");
             }
         }
 
@@ -100,6 +124,41 @@ namespace EnhancementShamanBot
             hasFood &&
             !isEating &&
             healthPercent < foodHealthPercent;
+
+        internal static string SelectRestHeal(
+            int healthPercent,
+            bool canUseLesserHealingWave,
+            bool canUseHealingWave)
+        {
+            if (healthPercent < 70 && canUseHealingWave)
+                return HealingWave;
+
+            if (canUseLesserHealingWave)
+                return LesserHealingWave;
+
+            return canUseHealingWave ? HealingWave : null;
+        }
+
+        internal static RestConsumable GetConsumableToUse(
+            int level,
+            bool hasFood,
+            bool isEating,
+            int healthPercent,
+            bool hasDrink,
+            bool isDrinking,
+            int manaPercent)
+        {
+            if (isEating || isDrinking)
+                return RestConsumable.None;
+
+            if (ShouldUseFood(hasFood, isEating, healthPercent))
+                return RestConsumable.Food;
+
+            if (ShouldUseDrink(level, hasDrink, isDrinking, manaPercent))
+                return RestConsumable.Drink;
+
+            return RestConsumable.None;
+        }
 
         internal static bool ShouldHeal(bool healthOk, bool isEating, bool isDrinking, bool canCastHeal) =>
             !healthOk &&

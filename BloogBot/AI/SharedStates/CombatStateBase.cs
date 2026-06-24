@@ -226,7 +226,7 @@ namespace BloogBot.AI.SharedStates
         {
             var distanceToTarget = player.Position.DistanceTo(target.Position);
 
-            if (player.IsSpellReady(name) && player.Mana >= player.GetManaCost(name) && distanceToTarget >= minRange && distanceToTarget <= maxRange && condition && !player.IsStunned && ((!player.IsCasting && !player.IsChanneling) || player.Class == Class.Warrior))
+            if (player.KnowsSpell(name) && player.IsSpellReady(name) && player.Mana >= player.GetManaCost(name) && distanceToTarget >= minRange && distanceToTarget <= maxRange && condition && !player.IsStunned && ((!player.IsCasting && !player.IsChanneling) || player.Class == Class.Warrior))
             {
                 if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
                 {
@@ -254,7 +254,7 @@ namespace BloogBot.AI.SharedStates
                 playerResource = player.Energy;
             // todo: feral druids (bear/cat form)
 
-            if (player.IsSpellReady(name) && playerResource >= requiredResource && condition && !player.IsStunned && !player.IsCasting)
+            if (player.KnowsSpell(name) && player.IsSpellReady(name) && playerResource >= requiredResource && condition && !player.IsStunned && !player.IsCasting)
             {
                 if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
                 {
@@ -273,7 +273,7 @@ namespace BloogBot.AI.SharedStates
         // The id is counted from 1 through all spell types (tabs on the right side of SpellBookFrame).
         public void TryUseAbilityById(string name, int id, int requiredRage = 0, bool condition = true, Action callback = null)
         {
-            if (player.IsSpellReady(name) && player.Rage >= requiredRage && condition && !player.IsStunned && !player.IsCasting)
+            if (player.KnowsSpell(name) && player.IsSpellReady(name) && player.Rage >= requiredRage && condition && !player.IsStunned && !player.IsCasting)
             {
                 if (ClientHelper.ClientVersion == ClientVersion.Vanilla)
                 {

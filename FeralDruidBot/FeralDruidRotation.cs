@@ -23,6 +23,22 @@ namespace FeralDruidBot
         internal static bool ShouldMoveIntoMeleeForMana(int manaPercent, float distanceToTarget) =>
             manaPercent < 20 && distanceToTarget > 5;
 
+        internal static bool CanPullWithWrath(
+            bool knowsSpell,
+            bool spellReady,
+            int mana,
+            int manaCost,
+            bool isStunned) =>
+            knowsSpell && spellReady && mana >= manaCost && !isStunned;
+
+        internal static bool CanPullWithFeralCharge(
+            bool knowsSpell,
+            bool spellReady,
+            int energy,
+            bool inCatForm,
+            bool isStunned) =>
+            knowsSpell && spellReady && energy >= 10 && inCatForm && !isStunned;
+
         internal static bool CanUseBearAbility(
             bool spellReady,
             int rage,

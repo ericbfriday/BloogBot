@@ -6,6 +6,13 @@ using System.Collections.Generic;
 
 namespace RetributionPaladinBot
 {
+    enum RestConsumable
+    {
+        None,
+        Food,
+        Drink
+    }
+
     class RestState : RestStateBase
     {
         const int lowLevelManaReadyPercent = 50;
@@ -18,7 +25,6 @@ namespace RetributionPaladinBot
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
             : base(botStates, container)
         {
-            player.SetTarget(player.Guid);
         }
 
         public override void Update()
@@ -33,33 +39,38 @@ namespace RetributionPaladinBot
                 return;
             }
 
-            var usedConsumable = false;
-
-            if (ShouldUseFood(foodItem != null, player.IsEating, player.HealthPercent) && Wait.For("EatDelay", 2000, true))
+            var consumable = SelectConsumable(
+                player.Level,
+                foodItem != null,
+                player.IsEating,
+                player.HealthPercent,
+                drinkItem != null,
+                player.IsDrinking,
+                player.ManaPercent);
+            if (consumable == RestConsumable.Food)
             {
-                foodItem.Use();
-                usedConsumable = true;
-            }
+                if (Wait.For("EatDelay", 2000, true))
+                    foodItem.Use();
 
-            if (ShouldUseDrink(player.Level, drinkItem != null, player.IsDrinking, player.ManaPercent) && Wait.For("DrinkDelay", 1000, true))
-            {
-                drinkItem.Use();
-                usedConsumable = true;
-            }
-
-            if (usedConsumable)
                 return;
+            }
 
-            var canCastHeal = player.KnowsSpell(HolyLight) &&
-                player.IsSpellReady(HolyLight) &&
-                player.Mana >= player.GetManaCost(HolyLight);
-            if (ShouldHeal(HealthOk, player.IsEating, player.IsDrinking, canCastHeal) && Wait.For("HealSelfDelay", 3500, true))
+            if (consumable == RestConsumable.Drink)
+            {
+                if (Wait.For("DrinkDelay", 1000, true))
+                    drinkItem.Use();
+
+                return;
+            }
+
+            var holyLightRank = SelectHolyLightRank(
+                player.HealthPercent,
+                CanCastHolyLight(rank: -1),
+                CanCastHolyLight(rank: 1));
+            if (ShouldHeal(HealthOk, player.IsEating, player.IsDrinking, holyLightRank.HasValue) && Wait.For("HealSelfDelay", 3500, true))
             {
                 player.Stand();
-                if (player.HealthPercent < 70)
-                    player.LuaCall($"CastSpellByName('{HolyLight}')");
-                if (player.HealthPercent > 70 && player.HealthPercent < 90)
-                    player.LuaCall($"CastSpellByName('{HolyLight}(Rank 1)')");
+                CastHolyLight(holyLightRank.Value);
             }
         }
 
@@ -84,10 +95,56 @@ namespace RetributionPaladinBot
             !isEating &&
             healthPercent < foodHealthPercent;
 
+        internal static RestConsumable SelectConsumable(
+            int level,
+            bool hasFood,
+            bool isEating,
+            int healthPercent,
+            bool hasDrink,
+            bool isDrinking,
+            int manaPercent)
+        {
+            if (isEating || isDrinking)
+                return RestConsumable.None;
+
+            if (ShouldUseFood(hasFood, isEating, healthPercent))
+                return RestConsumable.Food;
+
+            if (ShouldUseDrink(level, hasDrink, isDrinking, manaPercent))
+                return RestConsumable.Drink;
+
+            return RestConsumable.None;
+        }
+
+        internal static int? SelectHolyLightRank(
+            int healthPercent,
+            bool canCastHighestRank,
+            bool canCastRankOne)
+        {
+            if (healthPercent < 70 && canCastHighestRank)
+                return -1;
+
+            if (canCastRankOne)
+                return 1;
+
+            return canCastHighestRank ? -1 : (int?)null;
+        }
+
         internal static bool ShouldHeal(bool healthOk, bool isEating, bool isDrinking, bool canCastHeal) =>
             !healthOk &&
             !isEating &&
             !isDrinking &&
             canCastHeal;
+
+        bool CanCastHolyLight(int rank) =>
+            player.KnowsSpell(HolyLight) &&
+            player.IsSpellReady(HolyLight, rank) &&
+            player.Mana >= player.GetManaCost(HolyLight, rank);
+
+        void CastHolyLight(int rank)
+        {
+            var spell = rank < 1 ? HolyLight : $"{HolyLight}(Rank {rank})";
+            player.LuaCall($"CastSpellByName('{spell}',1)");
+        }
     }
 }

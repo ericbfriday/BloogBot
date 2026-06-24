@@ -34,5 +34,40 @@ namespace BloogBotTests
             Assert.IsFalse(RestState.ShouldHeal(healthOk: false, isEating: false, isDrinking: true, canCastHeal: true));
             Assert.IsTrue(RestState.ShouldHeal(healthOk: false, isEating: false, isDrinking: false, canCastHeal: true));
         }
+
+        [TestMethod]
+        public void HighHealthRecoveryUsesRankOneAtBoundaryValues()
+        {
+            Assert.AreEqual(1, RestState.SelectHolyLightRank(70, true, true));
+            Assert.AreEqual(1, RestState.SelectHolyLightRank(90, true, true));
+        }
+
+        [TestMethod]
+        public void SevereDamagePrefersHighestAffordableHolyLight()
+        {
+            Assert.AreEqual(-1, RestState.SelectHolyLightRank(69, true, true));
+            Assert.AreEqual(1, RestState.SelectHolyLightRank(69, false, true));
+            Assert.IsNull(RestState.SelectHolyLightRank(69, false, false));
+        }
+
+        [TestMethod]
+        public void RestConsumablesDoNotInterruptEachOther()
+        {
+            Assert.AreEqual(
+                RestConsumable.None,
+                RestState.SelectConsumable(30, true, true, 40, true, false, 20));
+            Assert.AreEqual(
+                RestConsumable.None,
+                RestState.SelectConsumable(30, true, false, 40, true, true, 20));
+        }
+
+        [TestMethod]
+        public void OptionalRecoverySpellsMustBeKnownReadyAndAffordable()
+        {
+            Assert.IsFalse(HealSelfState.CanCastSpell(false, true, 100, 10));
+            Assert.IsFalse(HealSelfState.CanCastSpell(true, false, 100, 10));
+            Assert.IsFalse(HealSelfState.CanCastSpell(true, true, 9, 10));
+            Assert.IsTrue(HealSelfState.CanCastSpell(true, true, 10, 10));
+        }
     }
 }

@@ -6,18 +6,19 @@ using System.Collections.Generic;
 
 namespace ShadowPriestBot
 {
+    enum RestConsumable
+    {
+        None,
+        Food,
+        Drink
+    }
+
     class RestState : RestStateBase
     {
         const int lowLevelManaReadyPercent = 50;
         const int manaReadyPercent = 65;
         const int fullManaReadyPercent = 90;
         const int foodHealthPercent = 80;
-
-        const string AbolishDisease = "Abolish Disease";
-        const string CureDisease = "Cure Disease";
-        const string LesserHeal = "Lesser Heal";
-        const string Heal = "Heal";
-        const string ShadowForm = "Shadowform";
 
         public RestState(Stack<IBotState> botStates, IDependencyContainer container)
             : base(botStates, container)
@@ -28,20 +29,30 @@ namespace ShadowPriestBot
         {
             if (player.IsCasting) return;
 
-            if (InCombat || (HealthOk && ManaOk))
+            if (InCombat)
             {
-                if (player.KnowsSpell(ShadowForm) && !player.HasBuff(ShadowForm) && player.IsDiseased)
-                {
-                    if (player.KnowsSpell(AbolishDisease))
-                        player.LuaCall($"CastSpellByName('{AbolishDisease}',1)");
-                    else if (player.KnowsSpell(CureDisease))
-                        player.LuaCall($"CastSpellByName('{CureDisease}',2)");
+                StopResting();
+                return;
+            }
 
+            if (HealthOk && ManaOk)
+            {
+                var diseaseCure = player.IsDiseased
+                    ? ShadowPriestRecovery.SelectDiseaseCure(
+                        player.KnowsSpell(ShadowPriestRecovery.AbolishDisease),
+                        player.KnowsSpell(ShadowPriestRecovery.CureDisease))
+                    : null;
+                if (CanCastSelfSpell(diseaseCure))
+                {
+                    CastSelfSpell(diseaseCure);
                     return;
                 }
 
-                if (player.KnowsSpell(ShadowForm) && !player.HasBuff(ShadowForm))
-                    player.LuaCall($"CastSpellByName('{ShadowForm}')");
+                if (!player.HasBuff(ShadowPriestRecovery.Shadowform) && CanCastSelfSpell(ShadowPriestRecovery.Shadowform))
+                {
+                    CastSelfSpell(ShadowPriestRecovery.Shadowform);
+                    return;
+                }
 
                 StopResting();
                 if (!TryRunRestockErrands(12, 28))
@@ -49,47 +60,47 @@ namespace ShadowPriestBot
                 return;
             }
 
-            var usedConsumable = false;
-
-            if (ShouldUseFood(foodItem != null, player.IsEating, player.HealthPercent) && Wait.For("EatDelay", 2000, true))
+            var consumable = SelectConsumable(
+                player.Level,
+                foodItem != null,
+                player.IsEating,
+                player.HealthPercent,
+                drinkItem != null,
+                player.IsDrinking,
+                player.ManaPercent);
+            if (consumable == RestConsumable.Food)
             {
-                foodItem.Use();
-                usedConsumable = true;
-            }
+                if (Wait.For("EatDelay", 2000, true))
+                    foodItem.Use();
 
-            if (ShouldUseDrink(player.Level, drinkItem != null, player.IsDrinking, player.ManaPercent) && Wait.For("DrinkDelay", 1000, true))
-            {
-                drinkItem.Use();
-                usedConsumable = true;
-            }
-
-            if (usedConsumable)
                 return;
+            }
 
-            var healingSpell = player.KnowsSpell(Heal) ? Heal : LesserHeal;
-            var canCastHeal = player.KnowsSpell(healingSpell) &&
-                player.IsSpellReady(healingSpell) &&
-                player.Mana >= player.GetManaCost(healingSpell);
-            if (ShouldHeal(HealthOk, player.IsEating, player.IsDrinking, canCastHeal) && Wait.For("HealSelfDelay", 3500, true))
+            if (consumable == RestConsumable.Drink)
+            {
+                if (Wait.For("DrinkDelay", 1000, true))
+                    drinkItem.Use();
+
+                return;
+            }
+
+            var healingSpell = ShadowPriestRecovery.SelectHeal(
+                player.HealthPercent,
+                CanCastSelfSpell(ShadowPriestRecovery.Heal),
+                CanCastSelfSpell(ShadowPriestRecovery.LesserHeal));
+            if (ShouldHeal(HealthOk, player.IsEating, player.IsDrinking, healingSpell != null) && Wait.For("HealSelfDelay", 3500, true))
             {
                 player.Stand();
 
-                if (player.HealthPercent < 70)
+                if (ShadowPriestRecovery.ShouldLeaveShadowform(
+                    player.HasBuff(ShadowPriestRecovery.Shadowform),
+                    healingSpell))
                 {
-                    if (player.HasBuff(ShadowForm))
-                        player.LuaCall($"CastSpellByName('{ShadowForm}')");
+                    CastSelfSpell(ShadowPriestRecovery.Shadowform);
+                    return;
                 }
 
-                if (player.HealthPercent < 50)
-                {
-                    if (player.KnowsSpell(Heal))
-                        player.LuaCall($"CastSpellByName('{Heal}',1)");
-                    else
-                        player.LuaCall($"CastSpellByName('{LesserHeal}',1)");
-                }
-
-                if (player.HealthPercent < 70)
-                    player.LuaCall($"CastSpellByName('{LesserHeal}',1)");
+                CastSelfSpell(healingSpell);
             }
         }
 
@@ -114,10 +125,40 @@ namespace ShadowPriestBot
             !isEating &&
             healthPercent < foodHealthPercent;
 
+        internal static RestConsumable SelectConsumable(
+            int level,
+            bool hasFood,
+            bool isEating,
+            int healthPercent,
+            bool hasDrink,
+            bool isDrinking,
+            int manaPercent)
+        {
+            if (isEating || isDrinking)
+                return RestConsumable.None;
+
+            if (ShouldUseFood(hasFood, isEating, healthPercent))
+                return RestConsumable.Food;
+
+            if (ShouldUseDrink(level, hasDrink, isDrinking, manaPercent))
+                return RestConsumable.Drink;
+
+            return RestConsumable.None;
+        }
+
         internal static bool ShouldHeal(bool healthOk, bool isEating, bool isDrinking, bool canCastHeal) =>
             !healthOk &&
             !isEating &&
             !isDrinking &&
             canCastHeal;
+
+        bool CanCastSelfSpell(string name) =>
+            !string.IsNullOrEmpty(name) &&
+            player.KnowsSpell(name) &&
+            player.IsSpellReady(name) &&
+            player.Mana >= player.GetManaCost(name);
+
+        void CastSelfSpell(string name) =>
+            player.LuaCall($"CastSpellByName('{name}',1)");
     }
 }

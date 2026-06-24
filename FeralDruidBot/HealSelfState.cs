@@ -32,22 +32,22 @@ namespace FeralDruidBot
 
             player.StopAllMovement();
 
-            if (player.HealthPercent > 70 || player.Mana < player.GetManaCost(HealingTouch))
+            if (player.HealthPercent > 70 || !player.KnowsSpell(HealingTouch) || player.Mana < player.GetManaCost(HealingTouch))
             {
                 Wait.RemoveAll();
                 botStates.Pop();
                 return;
             }
 
-            CastSpell(SurvivalInstincts);
+            CastSpell(SurvivalInstincts, castOnSelf: true);
 
             if (!player.HasBuff(SurvivalInstincts))
             {
-                CastSpell(Barkskin);
+                CastSpell(Barkskin, castOnSelf: true);
             }
 
-            if (player.IsSpellReady(WarStomp) && player.Position.DistanceTo(target.Position) <= 8)
-                player.LuaCall($"CastSpellByName('{WarStomp}')");
+            if (player.KnowsSpell(WarStomp) && player.IsSpellReady(WarStomp) && player.Position.DistanceTo(target.Position) <= 8)
+                CastSpell(WarStomp, castOnSelf: true);
 
             CastSpell(HealingTouch, castOnSelf: true);
         }

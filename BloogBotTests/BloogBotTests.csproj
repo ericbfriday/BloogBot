@@ -78,6 +78,7 @@
     <Compile Include="BalanceDruidRotationTests.cs" />
     <Compile Include="ElementalShamanRotationTests.cs" />
     <Compile Include="FeralDruidRotationTests.cs" />
+    <Compile Include="FeralDruidRestStateTests.cs" />
     <Compile Include="FrostMageRotationTests.cs" />
     <Compile Include="ProtectionPaladinRotationTests.cs" />
     <Compile Include="CombatRogueRotationTests.cs" />
