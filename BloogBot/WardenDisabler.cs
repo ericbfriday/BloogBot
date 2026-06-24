@@ -278,24 +278,16 @@ namespace BloogBot
 
         static void InitializeWardenPageScanHook(IntPtr wardenModuleStart)
         {
-            IntPtr pageScanPtr = IntPtr.Zero;
-
             // in the WotLK client, the PageScan and MemScan functions seem to be loaded into memory at a random offset sometime after the WardenModule base address,
             // and about 6000 bytes later. I spent a bunch of time trying to figure out how to find the address of these functions deterministically, but failed.
-            // so instead, we scan 5 bytes of memory 1 byte at a time until we find the function signature. and we start at 6000 and go down because occasionally
+            // so instead, we scan memory from high addresses to low until we find the function signature. occasionally
             // I've seen the same 5 bytes in memory more in more than one place, but through experimentation, it seems we always want the higher one.
 
             // TODO [12-3-2022]: this sorta works, but not consistently. need to come back and find a better way of doing this.
-            for (var i = 0x10000; i > 0; i--)
-            {
-                var tempPageScanPtr = IntPtr.Add(wardenModuleStart, i);
-                var currentBytes = MemoryManager.ReadBytes(tempPageScanPtr, 5);
-                if (currentBytes != null && currentBytes.SequenceEqual(pageScanOriginalBytes))
-                {
-                    pageScanPtr = tempPageScanPtr;
-                    break;
-                }
-            }
+            var pageScanPtr = MemoryManager.FindPatternInReadableMemory(
+                wardenModuleStart,
+                0x10000,
+                pageScanOriginalBytes);
 
             if (pageScanPtr == IntPtr.Zero || pageScanPtr == wardenPageScanFunPtr)
             {
@@ -365,17 +357,10 @@ namespace BloogBot
 
         static void InitializeWardenMemScanHook(IntPtr wardenModuleStart)
         {
-            IntPtr memScanPtr = IntPtr.Zero;
-            for (var i = 0x10000; i > 0; i--)
-            {
-                var tempMemScanPtr = IntPtr.Add(wardenModuleStart, i);
-                var currentBytes = MemoryManager.ReadBytes(tempMemScanPtr, 5);
-                if (currentBytes != null && currentBytes.SequenceEqual(memScanOriginalBytes))
-                {
-                    memScanPtr = tempMemScanPtr;
-                    break;
-                }
-            }
+            var memScanPtr = MemoryManager.FindPatternInReadableMemory(
+                wardenModuleStart,
+                0x10000,
+                memScanOriginalBytes);
 
             if (memScanPtr == IntPtr.Zero || memScanPtr == wardenMemScanFunPtr)
             {

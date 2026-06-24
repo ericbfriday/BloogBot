@@ -95,6 +95,7 @@ namespace BloogBot.UI
                     OnPropertyChanged(nameof(CurrentBotEnabled));
                     OnPropertyChanged(nameof(GrindingHotspotEnabled));
                     OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                    OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
                 }
 
                 currentBot.Login(container, stopCallback);
@@ -110,6 +111,7 @@ namespace BloogBot.UI
                 OnPropertyChanged(nameof(CurrentBotEnabled));
                 OnPropertyChanged(nameof(GrindingHotspotEnabled));
                 OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
             }
             catch (Exception e)
             {
@@ -154,6 +156,7 @@ namespace BloogBot.UI
                     OnPropertyChanged(nameof(CurrentBotEnabled));
                     OnPropertyChanged(nameof(GrindingHotspotEnabled));
                     OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                    OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
                 }
 
                 currentBot.Start(container, stopCallback);
@@ -169,6 +172,7 @@ namespace BloogBot.UI
                 OnPropertyChanged(nameof(CurrentBotEnabled));
                 OnPropertyChanged(nameof(GrindingHotspotEnabled));
                 OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
             }
             catch (Exception e)
             {
@@ -208,6 +212,7 @@ namespace BloogBot.UI
                 OnPropertyChanged(nameof(CurrentBotEnabled));
                 OnPropertyChanged(nameof(GrindingHotspotEnabled));
                 OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
             }
             catch (Exception e)
             {
@@ -315,6 +320,7 @@ namespace BloogBot.UI
                 OnPropertyChanged(nameof(CurrentBotEnabled));
                 OnPropertyChanged(nameof(GrindingHotspotEnabled));
                 OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
             }
 
             currentBot.StartPowerlevel(container, stopCallback);
@@ -330,6 +336,7 @@ namespace BloogBot.UI
             OnPropertyChanged(nameof(CurrentBotEnabled));
             OnPropertyChanged(nameof(GrindingHotspotEnabled));
             OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+            OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
         }
 
         public ICommand StartPowerlevelCommand =>
@@ -475,6 +482,7 @@ namespace BloogBot.UI
                     OnPropertyChanged(nameof(CurrentBotEnabled));
                     OnPropertyChanged(nameof(GrindingHotspotEnabled));
                     OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                    OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
                 }
 
                 currentBot.Travel(container, reverseTravelPath, callback);
@@ -490,6 +498,7 @@ namespace BloogBot.UI
                 OnPropertyChanged(nameof(CurrentBotEnabled));
                 OnPropertyChanged(nameof(GrindingHotspotEnabled));
                 OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
 
                 Log("Travel started!");
             }
@@ -525,6 +534,7 @@ namespace BloogBot.UI
                 OnPropertyChanged(nameof(CurrentBotEnabled));
                 OnPropertyChanged(nameof(GrindingHotspotEnabled));
                 OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
 
                 Log("TravelPath stopped!");
             }
@@ -803,6 +813,7 @@ namespace BloogBot.UI
                 OnPropertyChanged(nameof(CurrentBotEnabled));
                 OnPropertyChanged(nameof(GrindingHotspotEnabled));
                 OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
             }
 
             currentBot.StartGathering(container, stopCallback);
@@ -818,6 +829,7 @@ namespace BloogBot.UI
             OnPropertyChanged(nameof(CurrentBotEnabled));
             OnPropertyChanged(nameof(GrindingHotspotEnabled));
             OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+            OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
         }
 
         public ICommand StartGatheringCommand =>
@@ -847,6 +859,8 @@ namespace BloogBot.UI
         public bool StopTravelPathCommandEnabled => currentBot.Running();
 
         public bool CurrentTravelPathEnabled => !currentBot.Running();
+
+        public bool CurrentGatherRouteEnabled => !currentBot.Running();
 
         public bool LoginCommandEnabled => !currentBot.Running();
 
@@ -1875,6 +1889,7 @@ namespace BloogBot.UI
                     OnPropertyChanged(nameof(CurrentBotEnabled));
                     OnPropertyChanged(nameof(GrindingHotspotEnabled));
                     OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                    OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
                 });
 
                 OnPropertyChanged(nameof(LoginCommandEnabled));
@@ -1888,6 +1903,7 @@ namespace BloogBot.UI
                 OnPropertyChanged(nameof(CurrentBotEnabled));
                 OnPropertyChanged(nameof(GrindingHotspotEnabled));
                 OnPropertyChanged(nameof(CurrentTravelPathEnabled));
+                OnPropertyChanged(nameof(CurrentGatherRouteEnabled));
             });
         }
     }

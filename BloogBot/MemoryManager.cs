@@ -47,6 +47,34 @@ namespace BloogBot
             int dwSize,
             ref int lpNumberOfBytesWritten);
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool ReadProcessMemory(
+            IntPtr hProcess,
+            IntPtr lpBaseAddress,
+            [Out] byte[] lpBuffer,
+            int dwSize,
+            out IntPtr lpNumberOfBytesRead);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern UIntPtr VirtualQuery(
+            IntPtr lpAddress,
+            out MEMORY_BASIC_INFORMATION lpBuffer,
+            UIntPtr dwLength);
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct MEMORY_BASIC_INFORMATION
+        {
+            public IntPtr BaseAddress;
+            public IntPtr AllocationBase;
+            public uint AllocationProtect;
+            public UIntPtr RegionSize;
+            public uint State;
+            public uint Protect;
+            public uint Type;
+        }
+
+        const uint MEM_COMMIT = 0x1000;
+
         [Flags]
         public enum Protection
         {
@@ -242,6 +270,94 @@ namespace BloogBot
             return ret;
         }
 
+        static internal IntPtr FindPatternInReadableMemory(IntPtr start, int maxBytes, byte[] pattern)
+        {
+            if (start == IntPtr.Zero || maxBytes <= 0 || pattern == null || pattern.Length == 0 || pattern.Length > maxBytes)
+                return IntPtr.Zero;
+
+            var scanBytes = new byte[maxBytes];
+            var readableBytes = new bool[maxBytes];
+            var scanStart = start.ToInt64();
+            var scanEnd = scanStart + maxBytes;
+            var address = scanStart;
+            var memoryInfoSize = (UIntPtr)Marshal.SizeOf(typeof(MEMORY_BASIC_INFORMATION));
+
+            while (address < scanEnd)
+            {
+                if (VirtualQuery(new IntPtr(address), out var memoryInfo, memoryInfoSize) == UIntPtr.Zero)
+                    break;
+
+                var regionStart = memoryInfo.BaseAddress.ToInt64();
+                var regionSize = (long)memoryInfo.RegionSize.ToUInt64();
+                var regionEnd = regionStart + regionSize;
+                if (regionSize <= 0 || regionEnd <= address)
+                    break;
+
+                var readableStart = Math.Max(address, regionStart);
+                var readableEnd = Math.Min(scanEnd, regionEnd);
+                var readableLength = (int)(readableEnd - readableStart);
+
+                if (readableLength > 0 && IsReadable(memoryInfo))
+                {
+                    var regionBytes = new byte[readableLength];
+                    if (ReadProcessMemory(
+                            wowProcessHandle,
+                            new IntPtr(readableStart),
+                            regionBytes,
+                            readableLength,
+                            out var bytesRead) &&
+                        bytesRead.ToInt64() == readableLength)
+                    {
+                        var destinationOffset = (int)(readableStart - scanStart);
+                        Buffer.BlockCopy(regionBytes, 0, scanBytes, destinationOffset, readableLength);
+                        for (var i = destinationOffset; i < destinationOffset + readableLength; i++)
+                            readableBytes[i] = true;
+                    }
+                }
+
+                address = regionEnd;
+            }
+
+            for (var offset = maxBytes - pattern.Length; offset >= 0; offset--)
+            {
+                var matches = true;
+                for (var patternIndex = 0; patternIndex < pattern.Length; patternIndex++)
+                {
+                    var scanIndex = offset + patternIndex;
+                    if (!readableBytes[scanIndex] || scanBytes[scanIndex] != pattern[patternIndex])
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (matches)
+                    return IntPtr.Add(start, offset);
+            }
+
+            return IntPtr.Zero;
+        }
+
+        static bool IsReadable(MEMORY_BASIC_INFORMATION memoryInfo)
+        {
+            if (memoryInfo.State != MEM_COMMIT || (memoryInfo.Protect & (uint)Protection.PAGE_GUARD) != 0)
+                return false;
+
+            switch (memoryInfo.Protect & 0xFF)
+            {
+                case (uint)Protection.PAGE_READONLY:
+                case (uint)Protection.PAGE_READWRITE:
+                case (uint)Protection.PAGE_WRITECOPY:
+                case (uint)Protection.PAGE_EXECUTE:
+                case (uint)Protection.PAGE_EXECUTE_READ:
+                case (uint)Protection.PAGE_EXECUTE_READWRITE:
+                case (uint)Protection.PAGE_EXECUTE_WRITECOPY:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         [HandleProcessCorruptedStateExceptions]
         static public ItemCacheEntry ReadItemCacheEntry(IntPtr address)
         {
@@ -292,6 +408,17 @@ namespace BloogBot
             VirtualProtect(address, bytes.Length, (uint)protection, out uint _);
         }
 
+        static internal byte[] RequireValidAssembly(Func<byte[]> assemble, int? maximumLength)
+        {
+            var byteCode = assemble();
+            if (byteCode == null || byteCode.Length == 0)
+                throw new InvalidOperationException("Assembly produced no machine code.");
+            if (maximumLength.HasValue && byteCode.Length > maximumLength.Value)
+                throw new InvalidOperationException("Assembly exceeds the allocated executable buffer.");
+
+            return byteCode;
+        }
+
         static internal IntPtr InjectAssembly(string hackName, string[] instructions)
         {
             // first get the assembly as bytes for the allocated area before overwriting the memory
@@ -300,27 +427,36 @@ namespace BloogBot
             foreach (var x in instructions)
                 fasm.AddLine(x);
 
-            var byteCode = new byte[0];
+            byte[] byteCode;
             try
             {
-                byteCode = fasm.Assemble();
+                byteCode = RequireValidAssembly(() => fasm.Assemble(), null);
             }
             catch (FasmAssemblerException ex)
             {
                 Logger.Log(ex);
+                throw;
             }
 
             var start = Marshal.AllocHGlobal(byteCode.Length);
-            fasm.Clear();
-            fasm.AddLine("use32");
-            foreach (var x in instructions)
-                fasm.AddLine(x);
-            byteCode = fasm.Assemble(start);
+            try
+            {
+                fasm.Clear();
+                fasm.AddLine("use32");
+                foreach (var x in instructions)
+                    fasm.AddLine(x);
+                byteCode = RequireValidAssembly(() => fasm.Assemble(start), byteCode.Length);
 
-            var hack = new Hack(hackName, start, byteCode);
-            HackManager.AddHack(hack);
+                var hack = new Hack(hackName, start, byteCode);
+                HackManager.AddHack(hack);
 
-            return start;
+                return start;
+            }
+            catch
+            {
+                Marshal.FreeHGlobal(start);
+                throw;
+            }
         }
 
         static internal void InjectAssembly(string hackName, uint ptr, string instructions)

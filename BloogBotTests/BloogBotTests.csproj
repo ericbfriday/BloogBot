@@ -80,6 +80,7 @@
     <Compile Include="FeralDruidRotationTests.cs" />
     <Compile Include="FeralDruidRestStateTests.cs" />
     <Compile Include="FrostMageRotationTests.cs" />
+    <Compile Include="MainViewModelBindingTests.cs" />
     <Compile Include="ProtectionPaladinRotationTests.cs" />
     <Compile Include="CombatRogueRotationTests.cs" />
     <Compile Include="CombatStateBaseTests.cs" />
@@ -97,6 +98,7 @@
     <Compile Include="ShadowPriestPowerlevelCombatRotationTests.cs" />
     <Compile Include="ShadowPriestPowerlevelCombatRangeTests.cs" />
     <Compile Include="ShadowPriestRestStateTests.cs" />
+    <Compile Include="WardenDisablerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
